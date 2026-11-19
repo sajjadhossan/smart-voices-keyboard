@@ -1,0 +1,214 @@
+name: Build on Demand (Multi-Platform)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Choose build target platform'
+        required: true
+        default: 'build-all'
+        type: choice
+        options:
+          - 'build-all'
+          - 'build-android-apk'
+          - 'build-windows-app'
+          - 'build-macos-intel-app'
+          - 'build-macos-apple-silicon-app'
+          - 'build-macos-universal-app'
+          - 'build-web'
+
+jobs:
+  # 1. Android APK Build
+  build-android:
+    name: Build Android APK
+    if: inputs.platform == 'build-all' || inputs.platform == 'build-android-apk'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Keystore & Build APK
+        run: |
+          cd android
+          chmod +x gradlew || gradle wrapper
+          cd app
+          if [ ! -f debug.keystore ]; then
+            keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          cd ..
+          ./gradlew assembleRelease || ./gradlew assembleDebug
+
+      - name: Prepare Android Output
+        run: |
+          mkdir -p build-output
+          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/app-v1.0.0-build1-android.apk \;
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-v1.0.0-build1-android.apk
+          path: build-output/app-v1.0.0-build1-android.apk
+          retention-days: 30
+
+  # 2. Windows App Build
+  build-windows:
+    name: Build Windows App (x64)
+    if: inputs.platform == 'build-all' || inputs.platform == 'build-windows-app'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install & Run Tests
+        run: |
+          npm ci
+          npm test
+
+      - name: Build Windows Installer & Portable
+        run: npm run build:windows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartVoiceKeyboard-Windows-v1.0.0
+          path: |
+            release/*.exe
+            release/*.zip
+          retention-days: 30
+
+  # 3. macOS Intel Build (x64)
+  build-macos-intel:
+    name: Build macOS Intel (x64)
+    if: inputs.platform == 'build-all' || inputs.platform == 'build-macos-intel-app'
+    runs-on: macos-13
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install & Build macOS x64
+        run: |
+          npm ci
+          npx electron-builder --mac --x64 --config desktop/electron-builder.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Intel Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartVoiceKeyboard-macOS-intel-x64
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 30
+
+  # 4. macOS Apple Silicon Build (arm64)
+  build-macos-arm:
+    name: Build macOS Apple Silicon (arm64)
+    if: inputs.platform == 'build-all' || inputs.platform == 'build-macos-apple-silicon-app'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install & Build macOS arm64
+        run: |
+          npm ci
+          npx electron-builder --mac --arm64 --config desktop/electron-builder.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Apple Silicon Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartVoiceKeyboard-macOS-arm64
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 30
+
+  # 5. macOS Universal Build (Intel + Apple Silicon)
+  build-macos-universal:
+    name: Build macOS Universal
+    if: inputs.platform == 'build-all' || inputs.platform == 'build-macos-universal-app'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install & Build macOS Universal
+        run: |
+          npm ci
+          npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS Universal Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartVoiceKeyboard-macOS-universal
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 30
+
+  # 6. Web / Backend API Build
+  build-web:
+    name: Build Web & Backend API
+    if: inputs.platform == 'build-all' || inputs.platform == 'build-web'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install & Run Tests
+        run: |
+          npm ci
+          npm test
+
+      - name: Package Web Distribution
+        run: |
+          mkdir -p web-dist
+          cp -r desktop/src/renderer/* web-dist/
+          cp -r core web-dist/
+
+      - name: Upload Web Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartVoiceKeyboard-Web
+          path: web-dist/**
+          retention-days: 30
