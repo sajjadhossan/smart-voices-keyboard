@@ -13,6 +13,7 @@ const { GeminiTranslator } = require('../../core/gemini/translator');
 const { VoiceCommandEngine } = require('../../core/gemini/voice-commands');
 const { PhoneticEngine } = require('../../core/phonetic/phonetic-engine');
 const { ClipboardStore } = require('../../core/clipboard/clipboard-store');
+const { SyncClient } = require('../../core/sync/sync-client');
 
 let mainWindow = null;
 let tray = null;
@@ -45,6 +46,11 @@ try {
 
 const geminiTranslator = new GeminiTranslator(appSettings.geminiApiKey);
 const voiceCommandEngine = new VoiceCommandEngine(appSettings.geminiApiKey);
+const syncClient = new SyncClient({
+  serverUrl: appSettings.syncServerUrl || 'http://localhost:4000',
+  authToken: appSettings.syncAuthToken || '',
+  deviceType: isMac ? 'macos' : 'windows'
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -169,12 +175,22 @@ function startClipboardWatcher() {
       const currentText = clipboard.readText();
       if (currentText && currentText.trim() && currentText !== lastCopiedText) {
         lastCopiedText = currentText;
-        clipboardStore.addClip(currentText, 'desktop');
+        const newClip = clipboardStore.addClip(currentText, 'desktop');
+        if (newClip) {
+          syncClient.queueClip(newClip);
+        }
       }
     } catch (err) {
       // Ignore clipboard read errors
     }
   }, 1000);
+
+  // Background Periodic Sync (every 30s)
+  setInterval(() => {
+    if (syncClient.getPendingCount() > 0 && appSettings.syncAuthToken) {
+      syncClient.sync();
+    }
+  }, 30000);
 }
 
 // Text injection into active window
@@ -249,6 +265,18 @@ ipcMain.handle('clipboard:clear', async (_, { keepPinned }) => {
 ipcMain.handle('desktop:inject-text', async (_, { text }) => {
   injectTextToActiveWindow(text);
   return true;
+});
+
+ipcMain.handle('sync:trigger', async () => {
+  return await syncClient.sync();
+});
+
+ipcMain.handle('sync:get-status', () => {
+  return {
+    status: syncClient.syncStatus,
+    pendingCount: syncClient.getPendingCount(),
+    lastSyncedAt: syncClient.lastSyncedAt
+  };
 });
 
 ipcMain.handle('settings:get', async () => {

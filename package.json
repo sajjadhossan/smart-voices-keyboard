@@ -17,8 +17,9 @@
     "test:desktop": "node core/test/desktop-ipc.test.js",
     "test:commands": "node core/test/voice-commands.test.js",
     "test:stt": "node core/test/stt-pipeline.test.js",
+    "test:sync": "node core/test/sync-client.test.js",
     "test:backend": "node backend/test/server.test.js",
-    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:desktop && npm run test:backend"
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:desktop && npm run test:backend"
   },
   "dependencies": {
     "dotenv": "^16.4.7"

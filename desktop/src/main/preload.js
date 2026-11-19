@@ -38,6 +38,13 @@ contextBridge.exposeInMainWorld('api', {
   injectTextToActiveWindow: (text) => 
     ipcRenderer.invoke('desktop:inject-text', { text }),
 
+  // Cross-Device Sync
+  triggerSync: () => 
+    ipcRenderer.invoke('sync:trigger'),
+  
+  getSyncStatus: () => 
+    ipcRenderer.invoke('sync:get-status'),
+
   // Settings
   getSettings: () => 
     ipcRenderer.invoke('settings:get'),

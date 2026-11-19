@@ -414,6 +414,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Cloud Sync Handler
+  const btnTriggerCloudSync = document.getElementById('btnTriggerCloudSync');
+  const syncStatusLabel = document.getElementById('syncStatusLabel');
+  const syncDotIndicator = document.getElementById('syncDotIndicator');
+
+  async function updateSyncStatus() {
+    if (!window.api || !syncStatusLabel) return;
+    try {
+      const info = await window.api.getSyncStatus();
+      if (info) {
+        if (info.status === 'syncing') {
+          syncStatusLabel.textContent = 'ক্লাউড সিঙ্ক: সিঙ্ক হচ্ছে...';
+          if (syncDotIndicator) syncDotIndicator.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        } else if (info.status === 'failed') {
+          syncStatusLabel.textContent = `ক্লাউড সিঙ্ক: লোকাল কিউ (${info.pendingCount})`;
+          if (syncDotIndicator) syncDotIndicator.className = 'w-2 h-2 rounded-full bg-slate-500';
+        } else {
+          syncStatusLabel.textContent = info.pendingCount > 0 
+            ? `ক্লাউড সিঙ্ক: পেন্ডিং (${info.pendingCount})` 
+            : 'ক্লাউড সিঙ্ক: প্রস্তুত (Synced)';
+          if (syncDotIndicator) syncDotIndicator.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        }
+      }
+    } catch (e) {}
+  }
+
+  btnTriggerCloudSync?.addEventListener('click', async () => {
+    if (!window.api) return;
+    btnTriggerCloudSync.textContent = '🔄 সিঙ্ক হচ্ছে...';
+    try {
+      await window.api.triggerSync();
+      await updateSyncStatus();
+      loadClipboardItems();
+    } catch (e) {
+      alert('Sync Error: ' + e.message);
+    } finally {
+      btnTriggerCloudSync.textContent = '🔄 সিঙ্ক করুন';
+    }
+  });
+
   // -------------------------------------------------------------
   // TAB 5: Settings Controller
   // -------------------------------------------------------------

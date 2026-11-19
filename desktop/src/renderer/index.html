@@ -186,6 +186,17 @@
 
     <!-- TAB 4: Unlimited Clipboard Manager -->
     <section id="tab-clipboard" class="tab-content space-y-3">
+      <!-- Cloud Sync Status Bar -->
+      <div class="flex items-center justify-between text-[11px] bg-slate-800/40 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-400">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400" id="syncDotIndicator"></span>
+          <span id="syncStatusLabel">ক্লাউড সিঙ্ক: প্রস্তুত (Ready)</span>
+        </div>
+        <button id="btnTriggerCloudSync" class="text-emerald-400 hover:text-emerald-300 font-medium hover:underline">
+          🔄 সিঙ্ক করুন
+        </button>
+      </div>
+
       <div class="flex gap-2 items-center">
         <input type="text" id="clipboardSearchInput" class="flex-1 bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500" placeholder="ক্লিপবোর্ডে অনুসন্ধান করুন (Search clips)..." />
         <button id="btnFilterPinned" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg text-slate-300">
