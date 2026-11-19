@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.0.0',
+    latestVersion: '1.1.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.0.0-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.0.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.0.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.1.0-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.1.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.1.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.০.০: উন্নত স্পিচ-টু-টেক্সট, আনলিমিটেড ক্লিপবোর্ড এবং জেমিনাই অনুবাদ।',
-      en: 'New version 1.0.0: Enhanced Speech-to-Text, Unlimited Clipboard, and Gemini Translation.'
+      bn: 'নতুন সংস্করণ ১.১.০: জি-বোর্ড কনফিগারেশন টুলবার, অন-দ্য-ফ্লাই মাইক্রোফোন পারমিশন হ্যান্ডলার, এবং ডেডিকেটেড আনলিমিটেড পিনেবল ক্লিপবোর্ড প্যানেল।',
+      en: 'New version 1.1.0: Gboard-style toolbar configuration, on-the-fly microphone runtime permission handler, and dedicated unlimited pinnable clipboard panel.'
     },
     forceUpdate: false
   }

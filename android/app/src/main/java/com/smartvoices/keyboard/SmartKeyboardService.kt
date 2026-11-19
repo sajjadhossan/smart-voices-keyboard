@@ -1,11 +1,16 @@
 package com.smartvoices.keyboard
 
+import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
@@ -19,14 +24,16 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.content.ContextCompat
+import com.smartvoices.keyboard.clipboard.ClipEntry
 import com.smartvoices.keyboard.clipboard.ClipboardDbHelper
 import com.smartvoices.keyboard.gemini.GeminiService
 import com.smartvoices.keyboard.phonetic.PhoneticEngine
 import com.smartvoices.keyboard.ui.SettingsActivity
+import com.smartvoices.keyboard.ui.VoicePermissionActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,6 +44,11 @@ class SmartKeyboardService : InputMethodService() {
         ENGLISH,
         BANGLA,
         BANGLISH
+    }
+
+    enum class ActiveViewMode {
+        KEYBOARD,
+        CLIPBOARD
     }
 
     data class KeyboardTheme(
@@ -94,6 +106,7 @@ class SmartKeyboardService : InputMethodService() {
     )
 
     private var currentMode = TypingMode.ENGLISH
+    private var activeView = ActiveViewMode.KEYBOARD
     private var isShifted = false
     private var isListening = false
     private var speechRecognizer: SpeechRecognizer? = null
@@ -104,20 +117,21 @@ class SmartKeyboardService : InputMethodService() {
     private lateinit var audioManager: AudioManager
     private var vibrator: Vibrator? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private lateinit var rootLayout: LinearLayout
     private lateinit var toolbarLayout: LinearLayout
     private lateinit var suggestionBar: LinearLayout
+    private lateinit var contentContainer: FrameLayout
     private lateinit var keysLayout: LinearLayout
-    private lateinit var clipboardDrawer: HorizontalScrollView
-    private lateinit var clipboardRow: LinearLayout
+    private lateinit var clipboardPanel: LinearLayout
     private lateinit var btnMic: Button
     private lateinit var btnMode: Button
 
     // Phonetic word buffer for Banglish mode
     private val phoneticBuffer = StringBuilder()
 
-    // Key secondary mappings for long-press
+    // Secondary key mappings for long-press
     private val secondaryKeyMap = mapOf(
         "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
         "y" to "6", "u" to "7", "i" to "8", "o" to "9", "p" to "0",
@@ -126,6 +140,28 @@ class SmartKeyboardService : InputMethodService() {
         "z" to "*", "x" to "\"", "c" to "'", "v" to ":", "b" to ";",
         "n" to "!", "m" to "?", "." to "?"
     )
+
+    // Broadcast receiver for dynamic settings updates and runtime permissions
+    private val keyboardReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                SettingsActivity.ACTION_SETTINGS_UPDATED -> {
+                    val newApiKey = intent.getStringExtra("gemini_api_key") ?: ""
+                    geminiService = GeminiService(newApiKey)
+                    val newThemeKey = intent.getStringExtra("theme") ?: "dark"
+                    if (::rootLayout.isInitialized) {
+                        rebuildEntireUI()
+                    }
+                }
+                VoicePermissionActivity.ACTION_PERMISSION_RESULT -> {
+                    val granted = intent.getBooleanExtra("granted", false)
+                    if (granted) {
+                        startVoiceListening()
+                    }
+                }
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -152,6 +188,16 @@ class SmartKeyboardService : InputMethodService() {
         }
 
         setupClipboardListener()
+
+        val filter = IntentFilter().apply {
+            addAction(SettingsActivity.ACTION_SETTINGS_UPDATED)
+            addAction(VoicePermissionActivity.ACTION_PERMISSION_RESULT)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(keyboardReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(keyboardReceiver, filter)
+        }
     }
 
     private fun getCurrentTheme(): KeyboardTheme {
@@ -167,8 +213,8 @@ class SmartKeyboardService : InputMethodService() {
                 val text = clip.getItemAt(0).text?.toString()
                 if (!text.isNullOrBlank()) {
                     clipboardDb.insertOrUpdateClip(text)
-                    if (::clipboardDrawer.isInitialized && clipboardDrawer.visibility == View.VISIBLE) {
-                        refreshClipboardDrawer()
+                    if (activeView == ActiveViewMode.CLIPBOARD && ::clipboardPanel.isInitialized) {
+                        buildClipboardPanelContent()
                     }
                 }
             }
@@ -187,60 +233,159 @@ class SmartKeyboardService : InputMethodService() {
             )
         }
 
-        buildToolbar(currentTheme)
+        buildGboardToolbar(currentTheme)
         buildSuggestionBar(currentTheme)
-        buildClipboardDrawer(currentTheme)
-        buildKeyboards()
 
+        contentContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        rootLayout.addView(contentContainer)
+
+        buildKeyboards()
         return rootLayout
     }
 
-    private fun buildToolbar(theme: KeyboardTheme) {
+    private fun rebuildEntireUI() {
+        val currentTheme = getCurrentTheme()
+        rootLayout.setBackgroundColor(currentTheme.background)
+        rootLayout.removeAllViews()
+
+        buildGboardToolbar(currentTheme)
+        buildSuggestionBar(currentTheme)
+
+        contentContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        rootLayout.addView(contentContainer)
+
+        if (activeView == ActiveViewMode.CLIPBOARD) {
+            showClipboardView()
+        } else {
+            showKeyboardKeysView()
+        }
+    }
+
+    /**
+     * Gboard-style Sleek Toolbar
+     * Height: 44dp, Left: Quick Tools (Translate, Clipboard, Mode Switch, Settings) | Right: Microphone
+     */
+    private fun buildGboardToolbar(theme: KeyboardTheme) {
         toolbarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(theme.toolbarBg)
-            setPadding(10, 8, 10, 8)
+            setPadding(12, 4, 12, 4)
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                dpToPx(44)
             )
         }
 
-        // 1. Mic / Voice Button
-        btnMic = createToolbarButton("🎙️ ভয়েস", theme.actionKeyBg, theme.textColor) {
-            toggleVoiceInput()
+        // Left Container for tool icons
+        val toolsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f)
         }
-        toolbarLayout.addView(btnMic)
 
-        // 2. Mode Switch (EN / BN / Banglish)
-        btnMode = createToolbarButton(getModeLabel(), theme.specialKeyBg, theme.textColor) {
-            switchTypingMode()
-        }
-        toolbarLayout.addView(btnMode)
-
-        // 3. Quick Translate Button
-        val btnTranslate = createToolbarButton("🌐 অনুবাদ", theme.accentColor, Color.WHITE) {
+        // 1. Quick Translate Button (Gboard style)
+        val btnTranslate = createGboardIconButton("🌐 অনুবাদ", theme.toolbarBg, theme.textColor) {
             performQuickTranslate()
         }
-        toolbarLayout.addView(btnTranslate)
+        toolsContainer.addView(btnTranslate)
 
-        // 4. Clipboard Toggle
-        val btnClip = createToolbarButton("📋 ক্লিপবোর্ড", theme.specialKeyBg, theme.textColor) {
-            toggleClipboardDrawer()
+        // 2. Clipboard Panel Button
+        val btnClip = createGboardIconButton("📋 ক্লিপবোর্ড", theme.toolbarBg, theme.textColor) {
+            toggleClipboardView()
         }
-        toolbarLayout.addView(btnClip)
+        toolsContainer.addView(btnClip)
 
-        // 5. Settings Activity
-        val btnSettings = createToolbarButton("⚙️", theme.specialKeyBg, theme.textColor) {
+        // 3. Typing Mode Switch Pill (EN / বাংলিশ / বাংলা)
+        btnMode = Button(this).apply {
+            text = getModeLabel()
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(theme.textColor)
+            background = createRoundedDrawable(theme.specialKeyBg, dpToPx(14))
+            setPadding(dpToPx(10), dpToPx(3), dpToPx(10), dpToPx(3))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dpToPx(30)
+            ).apply {
+                setMargins(dpToPx(4), 0, dpToPx(4), 0)
+            }
+            setOnClickListener {
+                triggerHapticAndSound()
+                switchTypingMode()
+            }
+        }
+        toolsContainer.addView(btnMode)
+
+        // 4. Settings Icon Button
+        val btnSettings = createGboardIconButton("⚙️", theme.toolbarBg, theme.textColor) {
             val intent = Intent(this, SettingsActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             startActivity(intent)
         }
-        toolbarLayout.addView(btnSettings)
+        toolsContainer.addView(btnSettings)
+
+        toolbarLayout.addView(toolsContainer)
+
+        // Right side: Dedicated Gboard-style Voice Dictation Mic Button
+        btnMic = Button(this).apply {
+            text = "🎙️"
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            background = createRoundedDrawable(theme.actionKeyBg, dpToPx(18))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(38), dpToPx(38)).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            setOnClickListener {
+                triggerHapticAndSound()
+                toggleVoiceInput()
+            }
+        }
+        toolbarLayout.addView(btnMic)
 
         rootLayout.addView(toolbarLayout)
+    }
+
+    private fun createGboardIconButton(label: String, bgColor: Int, textColor: Int, onClick: () -> Unit): Button {
+        return Button(this).apply {
+            text = label
+            textSize = 12f
+            setTextColor(textColor)
+            setBackgroundColor(Color.TRANSPARENT)
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setOnClickListener {
+                triggerHapticAndSound()
+                onClick()
+            }
+        }
+    }
+
+    private fun createRoundedDrawable(color: Int, cornerRadiusPx: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+            cornerRadius = cornerRadiusPx.toFloat()
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        val density = resources.displayMetrics.density
+        return (dp * density).toInt()
     }
 
     private fun buildSuggestionBar(theme: KeyboardTheme) {
@@ -249,10 +394,10 @@ class SmartKeyboardService : InputMethodService() {
             visibility = View.GONE
             setBackgroundColor(theme.toolbarBg)
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(12, 6, 12, 6)
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
         rootLayout.addView(suggestionBar)
@@ -279,13 +424,13 @@ class SmartKeyboardService : InputMethodService() {
                 text = cand
                 textSize = 13f
                 setTextColor(currentTheme.textColor)
-                setBackgroundColor(currentTheme.specialKeyBg)
-                setPadding(20, 6, 20, 6)
+                background = createRoundedDrawable(currentTheme.specialKeyBg, dpToPx(8))
+                setPadding(dpToPx(14), dpToPx(4), dpToPx(14), dpToPx(4))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(6, 0, 6, 0)
+                    setMargins(dpToPx(4), 0, dpToPx(4), 0)
                 }
                 setOnClickListener {
                     triggerHapticAndSound()
@@ -300,116 +445,263 @@ class SmartKeyboardService : InputMethodService() {
         }
     }
 
-    private fun createToolbarButton(label: String, bgColor: Int, textColor: Int, onClick: () -> Unit): Button {
-        return Button(this).apply {
-            text = label
-            textSize = 12f
-            setTextColor(textColor)
-            setBackgroundColor(bgColor)
-            setPadding(14, 4, 14, 4)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(4, 0, 4, 0)
-            }
-            setOnClickListener {
-                triggerHapticAndSound()
-                onClick()
-            }
+    /**
+     * Gboard-style Dedicated Clipboard Panel
+     * Full-keyboard replacement showing Pinned and Recent clips serial by serial.
+     */
+    private fun toggleClipboardView() {
+        if (activeView == ActiveViewMode.CLIPBOARD) {
+            showKeyboardKeysView()
+        } else {
+            showClipboardView()
         }
     }
 
-    private fun buildClipboardDrawer(theme: KeyboardTheme) {
-        clipboardDrawer = HorizontalScrollView(this).apply {
-            visibility = View.GONE
+    private fun showKeyboardKeysView() {
+        activeView = ActiveViewMode.KEYBOARD
+        contentContainer.removeAllViews()
+        if (::keysLayout.isInitialized) {
+            contentContainer.addView(keysLayout)
+        } else {
+            buildKeyboards()
+        }
+    }
+
+    private fun showClipboardView() {
+        activeView = ActiveViewMode.CLIPBOARD
+        contentContainer.removeAllViews()
+        buildClipboardPanel()
+        contentContainer.addView(clipboardPanel)
+    }
+
+    private fun buildClipboardPanel() {
+        val theme = getCurrentTheme()
+
+        clipboardPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             setBackgroundColor(theme.background)
-            setPadding(6, 6, 6, 6)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(260)
+            )
+        }
+
+        // 1. Header Bar: [← কীবোর্ডে ফিরে যান] | "ক্লিপবোর্ড" | [🗑️ সব মুছুন]
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(theme.toolbarBg)
+            setPadding(dpToPx(12), dpToPx(6), dpToPx(12), dpToPx(6))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                110
+                dpToPx(38)
             )
         }
 
-        clipboardRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-
-        clipboardDrawer.addView(clipboardRow)
-        rootLayout.addView(clipboardDrawer)
-    }
-
-    private fun toggleClipboardDrawer() {
-        if (clipboardDrawer.visibility == View.VISIBLE) {
-            clipboardDrawer.visibility = View.GONE
-        } else {
-            clipboardDrawer.visibility = View.VISIBLE
-            refreshClipboardDrawer()
-        }
-    }
-
-    private fun refreshClipboardDrawer() {
-        clipboardRow.removeAllViews()
-        val currentTheme = getCurrentTheme()
-        val clips = clipboardDb.getAllClips().take(20)
-
-        if (clips.isEmpty()) {
-            val emptyTv = TextView(this).apply {
-                text = "ক্লিপবোর্ডে কোনো ডাটা সংরক্ষিত নেই"
-                setTextColor(Color.GRAY)
-                textSize = 12f
-                setPadding(16, 16, 16, 16)
+        val btnBack = TextView(this).apply {
+            text = "← ফিরে যান"
+            setTextColor(theme.accentColor)
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dpToPx(4), dpToPx(4), dpToPx(8), dpToPx(4))
+            setOnClickListener {
+                triggerHapticAndSound()
+                showKeyboardKeysView()
             }
-            clipboardRow.addView(emptyTv)
+        }
+        header.addView(btnBack)
+
+        val title = TextView(this).apply {
+            text = "📋 আনলিমিটেড ক্লিপবোর্ড"
+            setTextColor(theme.textColor)
+            textSize = 13f
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+        header.addView(title)
+
+        val btnClear = TextView(this).apply {
+            text = "🗑️ মুছুন"
+            setTextColor(Color.parseColor("#EF4444"))
+            textSize = 12f
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(4), dpToPx(4))
+            setOnClickListener {
+                triggerHapticAndSound()
+                val deleted = clipboardDb.clearUnpinned()
+                Toast.makeText(this@SmartKeyboardService, "$deleted টি অপিনকৃত ক্লিপ মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT).show()
+                buildClipboardPanelContent()
+            }
+        }
+        header.addView(btnClear)
+
+        clipboardPanel.addView(header)
+
+        // 2. Scrollable Container for serial-by-serial clips
+        val scrollView = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1.0f
+            )
+        }
+
+        val listContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            tag = "CLIP_LIST_CONTAINER"
+            setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        scrollView.addView(listContainer)
+        clipboardPanel.addView(scrollView)
+
+        buildClipboardPanelContent()
+    }
+
+    private fun buildClipboardPanelContent() {
+        if (!::clipboardPanel.isInitialized) return
+        val listContainer = clipboardPanel.findViewWithTag<LinearLayout>("CLIP_LIST_CONTAINER") ?: return
+        listContainer.removeAllViews()
+
+        val theme = getCurrentTheme()
+        val allClips = clipboardDb.getAllClips()
+
+        if (allClips.isEmpty()) {
+            val emptyTv = TextView(this).apply {
+                text = "ক্লিপবোর্ডে কোনো ডাটা সংরক্ষিত নেই।\nযেকোনো অ্যাপ থেকে লেখা কপি করলেই এখানে অটোমেটিক সিরিয়াল অনুযায়ী জমা হবে।"
+                setTextColor(Color.GRAY)
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setPadding(dpToPx(20), dpToPx(40), dpToPx(20), dpToPx(40))
+            }
+            listContainer.addView(emptyTv)
             return
         }
 
-        for (clip in clips) {
-            val btn = Button(this).apply {
-                text = if (clip.text.length > 25) clip.text.take(25) + "..." else clip.text
-                textSize = 11f
-                setTextColor(currentTheme.textColor)
-                setBackgroundColor(if (clip.isPinned) currentTheme.accentColor else currentTheme.keyBg)
-                setPadding(14, 6, 14, 6)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.MATCH_PARENT
-                ).apply {
-                    setMargins(5, 0, 5, 0)
-                }
-                setOnClickListener {
-                    triggerHapticAndSound()
-                    currentInputConnection?.commitText(clip.text, 1)
-                }
-                setOnLongClickListener {
-                    triggerHapticAndSound()
-                    clipboardDb.togglePin(clip.id, !clip.isPinned)
-                    refreshClipboardDrawer()
-                    true
-                }
+        val pinnedClips = allClips.filter { it.isPinned }
+        val recentClips = allClips.filter { !it.isPinned }
+
+        // Section 1: Pinned Clips
+        if (pinnedClips.isNotEmpty()) {
+            val pinnedHeader = TextView(this).apply {
+                text = "📌 পিন করা ক্লিপসমূহ (${pinnedClips.size})"
+                setTextColor(theme.accentColor)
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setPadding(dpToPx(4), dpToPx(6), dpToPx(4), dpToPx(4))
             }
-            clipboardRow.addView(btn)
+            listContainer.addView(pinnedHeader)
+
+            for (clip in pinnedClips) {
+                listContainer.addView(createGboardClipCard(clip, theme))
+            }
+        }
+
+        // Section 2: Recent Clips (Serial by serial)
+        if (recentClips.isNotEmpty()) {
+            val recentHeader = TextView(this).apply {
+                text = "🕒 সাম্প্রতিক ক্লিপসমূহ (${recentClips.size})"
+                setTextColor(Color.parseColor("#94A3B8"))
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setPadding(dpToPx(4), dpToPx(10), dpToPx(4), dpToPx(4))
+            }
+            listContainer.addView(recentHeader)
+
+            for (clip in recentClips) {
+                listContainer.addView(createGboardClipCard(clip, theme))
+            }
         }
     }
 
-    private fun buildKeyboards() {
-        if (::keysLayout.isInitialized) {
-            rootLayout.removeView(keysLayout)
+    /**
+     * Creates a Gboard-style clip item card with tap-to-paste, pin toggle, and delete
+     */
+    private fun createGboardClipCard(clip: ClipEntry, theme: KeyboardTheme): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = createRoundedDrawable(
+                if (clip.isPinned) theme.specialKeyBg else theme.keyBg,
+                dpToPx(8)
+            )
+            setPadding(dpToPx(12), dpToPx(10), dpToPx(8), dpToPx(10))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, dpToPx(4), 0, dpToPx(4))
+            }
         }
 
+        // Clip Text (Tap anywhere on text to instantly paste!)
+        val tvText = TextView(this).apply {
+            text = clip.text
+            textSize = 13f
+            maxLines = 3
+            setTextColor(theme.textColor)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+
+        card.setOnClickListener {
+            triggerHapticAndSound()
+            currentInputConnection?.commitText(clip.text, 1)
+            // Seamlessly return to keyboard keys after pasting
+            showKeyboardKeysView()
+        }
+
+        card.setOnLongClickListener {
+            triggerHapticAndSound()
+            clipboardDb.togglePin(clip.id, !clip.isPinned)
+            buildClipboardPanelContent()
+            Toast.makeText(this, if (!clip.isPinned) "পিন করা হয়েছে 📌" else "আনপিন করা হয়েছে", Toast.LENGTH_SHORT).show()
+            true
+        }
+
+        card.addView(tvText)
+
+        // Pin Toggle Button (📌 / 📍)
+        val btnPin = TextView(this).apply {
+            text = if (clip.isPinned) "📌" else "📍"
+            textSize = 16f
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
+            setOnClickListener {
+                triggerHapticAndSound()
+                clipboardDb.togglePin(clip.id, !clip.isPinned)
+                buildClipboardPanelContent()
+            }
+        }
+        card.addView(btnPin)
+
+        // Delete Button (🗑️)
+        val btnDelete = TextView(this).apply {
+            text = "🗑️"
+            textSize = 14f
+            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4))
+            setOnClickListener {
+                triggerHapticAndSound()
+                clipboardDb.deleteClip(clip.id)
+                buildClipboardPanelContent()
+            }
+        }
+        card.addView(btnDelete)
+
+        return card
+    }
+
+    private fun buildKeyboards() {
         val theme = getCurrentTheme()
 
         keysLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(theme.background)
-            setPadding(4, 6, 4, 12)
+            setPadding(dpToPx(3), dpToPx(4), dpToPx(3), dpToPx(8))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -418,78 +710,118 @@ class SmartKeyboardService : InputMethodService() {
             TypingMode.BANGLA -> getBanglaKeyRows()
         }
 
-        for (rowKeys in rows) {
-            val rowView = LinearLayout(this).apply {
+        for (row in rows) {
+            val rowLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    125
+                    dpToPx(48)
                 ).apply {
-                    setMargins(0, 3, 0, 3)
+                    setMargins(0, dpToPx(2), 0, dpToPx(2))
                 }
             }
 
-            for (key in rowKeys) {
-                val keyBtn = Button(this).apply {
-                    text = if (isShifted) key.uppercase() else key
-                    textSize = 17f
-                    setTextColor(theme.textColor)
-                    setBackgroundColor(getKeyColor(key, theme))
-                    typeface = Typeface.DEFAULT_BOLD
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        getKeyWeight(key)
-                    ).apply {
-                        setMargins(2, 2, 2, 2)
-                    }
-
-                    // Click listener
-                    setOnClickListener {
-                        triggerHapticAndSound()
-                        handleKeyPress(key)
-                    }
-
-                    // Long-press listener for symbols & numbers
-                    setOnLongClickListener {
-                        triggerHapticAndSound()
-                        handleKeyLongPress(key)
-                        true
-                    }
+            for (key in row) {
+                val keyWeight = when (key) {
+                    "Space" -> 4.0f
+                    "⌫", "↵", "⇧", "123" -> 1.5f
+                    else -> 1.0f
                 }
-                rowView.addView(keyBtn)
+
+                val keyView = createKeyView(key, theme, keyWeight)
+                rowLayout.addView(keyView)
             }
-            keysLayout.addView(rowView)
+
+            keysLayout.addView(rowLayout)
         }
 
-        rootLayout.addView(keysLayout)
+        if (activeView == ActiveViewMode.KEYBOARD) {
+            contentContainer.removeAllViews()
+            contentContainer.addView(keysLayout)
+        }
     }
 
-    private fun getKeyColor(key: String, theme: KeyboardTheme): Int {
-        return when (key) {
-            "⌫", "⇧", "123", "ABC" -> theme.specialKeyBg
-            "↵" -> theme.actionKeyBg
-            "Space" -> theme.keyBg
+    private fun createKeyView(key: String, theme: KeyboardTheme, weight: Float): View {
+        val isSpecial = key in listOf("⌫", "↵", "⇧", "123", ",", ".")
+        val isAction = key == "↵"
+
+        val bgColor = when {
+            isAction -> theme.actionKeyBg
+            isSpecial -> theme.specialKeyBg
             else -> theme.keyBg
         }
-    }
 
-    private fun getKeyWeight(key: String): Float {
-        return when (key) {
-            "Space" -> 4.5f
-            "⌫", "⇧", "↵" -> 1.5f
-            else -> 1.0f
+        val keyLayout = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
+                setMargins(dpToPx(2), 0, dpToPx(2), 0)
+            }
+            background = createRoundedDrawable(bgColor, dpToPx(6))
         }
+
+        val displayKey = when {
+            key == "Space" -> if (currentMode == TypingMode.BANGLISH) "বাংলা (Space)" else "Space"
+            key == "⇧" && isShifted -> "⬆"
+            isShifted && key.length == 1 -> key.uppercase()
+            else -> key
+        }
+
+        val mainLabel = TextView(this).apply {
+            text = displayKey
+            textSize = when {
+                key == "Space" -> 12f
+                key.length > 2 -> 13f
+                else -> 17f
+            }
+            setTypeface(null, if (isSpecial || isAction) Typeface.BOLD else Typeface.NORMAL)
+            setTextColor(if (isAction) Color.WHITE else theme.textColor)
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        keyLayout.addView(mainLabel)
+
+        // Secondary hint symbol on top right of the key
+        val secondary = secondaryKeyMap[key.lowercase()]
+        if (secondary != null && key.length == 1) {
+            val hintLabel = TextView(this).apply {
+                text = secondary
+                textSize = 9f
+                setTextColor(Color.parseColor("#94A3B8"))
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.END
+                    setMargins(0, dpToPx(2), dpToPx(4), 0)
+                }
+            }
+            keyLayout.addView(hintLabel)
+        }
+
+        // Tap & Long-Press handling
+        keyLayout.setOnClickListener {
+            triggerHapticAndSound()
+            handleKeyPress(key)
+        }
+
+        keyLayout.setOnLongClickListener {
+            triggerHapticAndSound()
+            handleKeyLongPress(key)
+            true
+        }
+
+        return keyLayout
     }
 
     private fun triggerHapticAndSound() {
         val enableVibration = prefs.getBoolean("enable_vibration", true)
         val enableSound = prefs.getBoolean("enable_sound", true)
 
-        if (enableVibration && vibrator != null && vibrator!!.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+        if (enableVibration) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(20)
@@ -557,7 +889,6 @@ class SmartKeyboardService : InputMethodService() {
             }
             ic.commitText(symbol, 1)
         } else if (key == "⌫") {
-            // Rapid erase on long backspace
             ic.deleteSurroundingText(phoneticBuffer.length.coerceAtLeast(5), 0)
             phoneticBuffer.clear()
             updateSuggestions()
@@ -589,13 +920,29 @@ class SmartKeyboardService : InputMethodService() {
 
     private fun getModeLabel(): String {
         return when (currentMode) {
-            TypingMode.ENGLISH -> "⌨️ EN"
-            TypingMode.BANGLISH -> "⌨️ বাংলিশ"
-            TypingMode.BANGLA -> "⌨️ বাংলা"
+            TypingMode.ENGLISH -> "EN"
+            TypingMode.BANGLISH -> "বাংলিশ"
+            TypingMode.BANGLA -> "বাংলা"
         }
     }
 
+    /**
+     * Gemini Quick Translation with dynamic API Key detection
+     */
     private fun performQuickTranslate() {
+        val latestApiKey = prefs.getString("gemini_api_key", "") ?: ""
+        if (latestApiKey.isBlank()) {
+            Toast.makeText(this, "⚠️ Gemini API Key দেওয়া হয়নি! অনুগ্রহ করে সেটিংসে API Key দিন।", Toast.LENGTH_LONG).show()
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+            return
+        }
+
+        // Ensure service uses latest key
+        geminiService = GeminiService(latestApiKey)
+
         val ic = currentInputConnection ?: return
         val selectedText = ic.getSelectedText(0)?.toString()
         val textToTranslate = if (!selectedText.isNullOrBlank()) {
@@ -630,86 +977,123 @@ class SmartKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Voice Dictation Handling with Runtime Permission Checking & SpeechRecognizer
+     */
     private fun toggleVoiceInput() {
         if (isListening) {
             stopVoiceListening()
         } else {
+            // 1. Verify Audio Record Runtime Permission
+            val hasPermission = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                // Launch transparent permission prompt activity immediately!
+                Toast.makeText(this, "ভয়েস টাইপিংয়ের জন্য মাইক্রোফোন পারমিশন প্রয়োজন", Toast.LENGTH_SHORT).show()
+                val permIntent = Intent(this, VoicePermissionActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(permIntent)
+                return
+            }
+
             startVoiceListening()
         }
     }
 
     private fun startVoiceListening() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Toast.makeText(this, "স্পিচ রিকগনিশন অ্যান্ড্রয়েডে সক্রিয় নয়", Toast.LENGTH_SHORT).show()
-            return
-        }
+        mainHandler.post {
+            try {
+                if (speechRecognizer == null) {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+                        setRecognitionListener(object : RecognitionListener {
+                            override fun onReadyForSpeech(params: Bundle?) {
+                                isListening = true
+                                btnMic.text = "🔴"
+                                btnMic.background = createRoundedDrawable(Color.parseColor("#EF4444"), dpToPx(18))
+                                Toast.makeText(this@SmartKeyboardService, "কথা বলুন...", Toast.LENGTH_SHORT).show()
+                            }
 
-        if (speechRecognizer == null) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
-                setRecognitionListener(object : RecognitionListener {
-                    override fun onReadyForSpeech(params: Bundle?) {}
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(rmsdB: Float) {}
-                    override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() {
-                        stopVoiceListening()
-                    }
+                            override fun onBeginningOfSpeech() {}
+                            override fun onRmsChanged(rmsdB: Float) {}
+                            override fun onBufferReceived(buffer: ByteArray?) {}
 
-                    override fun onError(error: Int) {
-                        stopVoiceListening()
-                        Toast.makeText(this@SmartKeyboardService, "Voice Error: $error", Toast.LENGTH_SHORT).show()
-                    }
+                            override fun onEndOfSpeech() {
+                                stopVoiceListening()
+                            }
 
-                    override fun onResults(results: Bundle?) {
-                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        if (!matches.isNullOrEmpty()) {
-                            val recognized = matches[0]
-                            currentInputConnection?.commitText("$recognized ", 1)
-                        }
-                        stopVoiceListening()
-                    }
+                            override fun onError(error: Int) {
+                                stopVoiceListening()
+                                val errorMsg = when (error) {
+                                    SpeechRecognizer.ERROR_AUDIO -> "অডিও রেকর্ডিং ত্রুটি"
+                                    SpeechRecognizer.ERROR_CLIENT -> "ক্লায়েন্ট ত্রুটি"
+                                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "মাইক্রোফোন পারমিশন প্রয়োজন"
+                                    SpeechRecognizer.ERROR_NETWORK -> "ইন্টারনেট কানেকশন চেক করুন"
+                                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "কানেকশন টাইমআউট"
+                                    SpeechRecognizer.ERROR_NO_MATCH -> "কোনো কথা শনাক্ত হয়নি"
+                                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "স্পিচ ইঞ্জিন ব্যস্ত"
+                                    SpeechRecognizer.ERROR_SERVER -> "সার্ভার ত্রুটি"
+                                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "টাইমআউট"
+                                    else -> "ভয়েস কোড: $error"
+                                }
+                                Toast.makeText(this@SmartKeyboardService, errorMsg, Toast.LENGTH_SHORT).show()
+                            }
 
-                    override fun onPartialResults(partialResults: Bundle?) {
-                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        if (!matches.isNullOrEmpty()) {
-                            // Show interim speech indication on toolbar
-                            btnMic.text = "🔴 ${matches[0].take(10)}..."
-                        }
+                            override fun onResults(results: Bundle?) {
+                                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                if (!matches.isNullOrEmpty()) {
+                                    val recognized = matches[0]
+                                    currentInputConnection?.commitText("$recognized ", 1)
+                                }
+                                stopVoiceListening()
+                            }
+
+                            override fun onPartialResults(partialResults: Bundle?) {
+                                val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                if (!matches.isNullOrEmpty()) {
+                                    btnMic.text = "🔴"
+                                }
+                            }
+
+                            override fun onEvent(eventType: Int, params: Bundle?) {}
+                        })
                     }
-                    override fun onEvent(eventType: Int, params: Bundle?) {}
-                })
+                }
+
+                val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    val langCode = if (currentMode == TypingMode.ENGLISH) "en-US" else "bn-BD"
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "কথা বলুন...")
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                }
+
+                speechRecognizer?.startListening(speechIntent)
+                isListening = true
+                btnMic.text = "🔴"
+                btnMic.background = createRoundedDrawable(Color.parseColor("#EF4444"), dpToPx(18))
+            } catch (e: Exception) {
+                isListening = false
+                Toast.makeText(this, "ভয়েস চালু করতে সমস্যা: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-        }
-
-        val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            val langCode = if (currentMode == TypingMode.ENGLISH) "en-US" else "bn-BD"
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "কথা বলুন...")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            }
-        }
-
-        try {
-            speechRecognizer?.startListening(speechIntent)
-            isListening = true
-            btnMic.text = "🔴 শুনছি..."
-            btnMic.setBackgroundColor(Color.parseColor("#EF4444"))
-        } catch (e: Exception) {
-            Toast.makeText(this, "Voice error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun stopVoiceListening() {
         isListening = false
         val theme = getCurrentTheme()
-        btnMic.text = "🎙️ ভয়েস"
-        btnMic.setBackgroundColor(theme.actionKeyBg)
-        try {
-            speechRecognizer?.stopListening()
-        } catch (e: Exception) {}
+        mainHandler.post {
+            btnMic.text = "🎙️"
+            btnMic.background = createRoundedDrawable(theme.actionKeyBg, dpToPx(18))
+            try {
+                speechRecognizer?.stopListening()
+            } catch (e: Exception) {}
+        }
     }
 
     private fun getEnglishKeyRows(): List<List<String>> {
@@ -734,6 +1118,9 @@ class SmartKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try {
+            unregisterReceiver(keyboardReceiver)
+        } catch (e: Exception) {}
         speechRecognizer?.destroy()
     }
 }

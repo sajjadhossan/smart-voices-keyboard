@@ -26,6 +26,42 @@
             android:textColor="#94A3B8"
             android:textSize="12sp" />
 
+        <!-- Setup Step 0: Permission Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#1E293B"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎙️ ভয়েস ইনপুট পারমিশন (Microphone Permission)"
+                android:textColor="#10B981"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvPermissionStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="যাচাই করা হচ্ছে..."
+                android:textColor="#F8FAFC"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnGrantPermission"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:backgroundTint="#10B981"
+                android:text="মাইক্রোফোন পারমিশন দিন (Allow Microphone)"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
         <!-- Setup Step 1: Enable Keyboard -->
         <LinearLayout
             android:layout_width="match_parent"

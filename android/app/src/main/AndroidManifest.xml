@@ -8,6 +8,16 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Package Visibility Queries for SpeechRecognizer on Android 11+ (API 30+) -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -29,6 +39,12 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
+
+        <!-- Transparent Permission Request Activity -->
+        <activity
+            android:name=".ui.VoicePermissionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Transparent" />
 
         <!-- Settings & Onboarding Activity -->
         <activity
