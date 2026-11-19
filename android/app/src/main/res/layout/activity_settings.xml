@@ -30,7 +30,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="20dp"
             android:background="#1E293B"
             android:orientation="vertical"
             android:padding="16dp">
@@ -42,14 +42,6 @@
                 android:textColor="#F8FAFC"
                 android:textSize="14sp"
                 android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="অ্যান্ড্রয়েড সেটিংস থেকে কীবোর্ড সক্রিয় করুন।"
-                android:textColor="#94A3B8"
-                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btnEnableKeyboard"
@@ -88,6 +80,106 @@
                 android:textColor="#FFFFFF" />
         </LinearLayout>
 
+        <!-- Test Input Box -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#1E293B"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⌨️ কীবোর্ড টেস্ট করুন (Live Test Input)"
+                android:textColor="#10B981"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/etTestKeyboard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="#0F172A"
+                android:hint="এখানে ক্লিক করে টাইপিং ও ভয়েস পরীক্ষা করুন..."
+                android:padding="12dp"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#475569"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Themes & Preferences -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#1E293B"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎨 থিম ও ভাইব্রেশন পছন্দসমূহ"
+                android:textColor="#10B981"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="কীবোর্ড থিম:"
+                android:textColor="#F8FAFC"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/spinnerThemes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="#0F172A"
+                android:minHeight="48dp"
+                android:padding="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="ডিফল্ট মোড:"
+                android:textColor="#F8FAFC"
+                android:textSize="13sp" />
+
+            <Spinner
+                android:id="@+id/spinnerDefaultMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="#0F172A"
+                android:minHeight="48dp"
+                android:padding="8dp" />
+
+            <CheckBox
+                android:id="@+id/cbVibration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:checked="true"
+                android:text="কি-প্রেস হ্যাপটিক ভাইব্রেশন (Vibration on keypress)"
+                android:textColor="#F8FAFC" />
+
+            <CheckBox
+                android:id="@+id/cbSound"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:checked="true"
+                android:text="কি-প্রেস সাউন্ড এফেক্ট (Sound on keypress)"
+                android:textColor="#F8FAFC" />
+        </LinearLayout>
+
         <!-- Gemini API Key -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -105,14 +197,6 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="অন-দ্য-ফ্লাই ইংরেজি-বাংলা অনুবাদ এবং AI ভয়েস ফিচারের জন্য প্রয়োজনীয়।"
-                android:textColor="#94A3B8"
-                android:textSize="12sp" />
-
             <EditText
                 android:id="@+id/etApiKey"
                 android:layout_width="match_parent"
@@ -127,20 +211,21 @@
                 android:textSize="13sp" />
 
             <Button
-                android:id="@+id/btnSaveApiKey"
+                android:id="@+id/btnSaveSettings"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:backgroundTint="#10B981"
-                android:text="API Key সংরক্ষণ করুন"
+                android:text="সেটিংস সংরক্ষণ করুন (Save Settings)"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
 
-        <!-- Clipboard Manager Info -->
+        <!-- Clipboard Manager Actions -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:layout_marginBottom="30dp"
             android:background="#1E293B"
             android:orientation="vertical"
             android:padding="16dp">
@@ -153,21 +238,13 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="কীবোর্ড চালুর সাথে সাথে যেকোনো অ্যাপ থেকে কপি করা টেক্সট স্বয়ংক্রিয়ভাবে ক্লিপবোর্ডে সংরক্ষিত হয়।"
-                android:textColor="#94A3B8"
-                android:textSize="12sp" />
-
             <Button
                 android:id="@+id/btnClearClipboard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:backgroundTint="#EF4444"
-                android:text="ক্লিপবোর্ড মেমোরি খালি করুন"
+                android:text="ক্লিপবোর্ড মেমোরি খালি করুন (Clear Unpinned)"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
 
