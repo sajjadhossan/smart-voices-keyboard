@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.SmartVoiceKeyboard" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/kb_accent</item>
+        <item name="colorPrimaryVariant">@color/kb_toolbar_bg</item>
+        <item name="colorOnPrimary">@color/kb_text_primary</item>
+        <item name="android:statusBarColor">@color/kb_toolbar_bg</item>
+        <item name="android:navigationBarColor">@color/kb_toolbar_bg</item>
+    </style>
+</resources>

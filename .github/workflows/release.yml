@@ -1,0 +1,112 @@
+name: Multi-Platform Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release Version (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-all:
+    name: Build All Targets
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: android
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: macos
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Android Build Step
+      - name: Build Android APK
+        if: matrix.target == 'android'
+        run: |
+          cd android
+          gradle wrapper || true
+          chmod +x gradlew || true
+          cd app && keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" || true
+          cd ..
+          ./gradlew assembleRelease || ./gradlew assembleDebug
+          mkdir -p ../release
+          find app/build/outputs/apk/ -name "*.apk" -exec cp {} ../release/SmartVoiceKeyboard-android.apk \;
+
+      # Desktop Setup & Build Step (Windows & macOS)
+      - name: Setup Node for Desktop
+        if: matrix.target != 'android'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Desktop (Windows)
+        if: matrix.target == 'windows'
+        run: |
+          npm ci
+          npm run build:windows
+
+      - name: Build Desktop (macOS)
+        if: matrix.target == 'macos'
+        run: |
+          npm ci
+          npm run build:mac
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-binaries-${{ matrix.target }}
+          path: release/*.*
+          retention-days: 1
+
+  create-github-release:
+    name: Publish GitHub Release
+    needs: build-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-binaries
+
+      - name: Collate Release Files
+        run: |
+          mkdir -p dist-release
+          find all-binaries/ -type f -exec cp {} dist-release/ \;
+          ls -la dist-release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-release/*
+          tag_name: ${{ github.ref_name }}
+          name: "Smart Voice Keyboard ${{ github.ref_name }}"
+          body: |
+            ## 🚀 Smart Voice Keyboard by Sajjad Hossan
+
+            ### Features in this Release:
+            - **Cross-Platform Support**: Android (APK), Windows (Installer & Portable .exe), macOS (DMG & ZIP).
+            - **Speech-to-Text**: Free, open-source high accuracy speech-to-text engine with Bengali & English support.
+            - **Google Gemini AI Integration**: Live bidirectional translation (English <-> Bangla) and voice command execution.
+            - **Bangla, English & Banglish Modes**: Full phonetic transliteration engine (type Romanized English -> authentic Unicode Bengali).
+            - **Unlimited Clipboard Manager**: Persistent history with search, pinning, deduplication, and instant auto-paste.
+            - **Desktop Floating Popup**: Hotkey-driven (`Ctrl+Alt+Space` / `Cmd+Alt+Space`) quick translation & dictation bar.
+
+            ### রিলিজ নোটস (বাংলা):
+            - অ্যান্ড্রয়েড, উইন্ডোজ ও ম্যাকওএস এর জন্য একীভূত ভয়েস কীবোর্ড।
+            - ওপেন-সোর্স স্পিচ-টু-টেক্সট এবং জেমিনাই এআই অনুবাদ ব্যবস্থা।
+            - বাংলিশ টু বাংলা ফোনেটিক টাইপিং ও আনলিমিটেড ক্লিপবোর্ড ম্যানেজার।
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Smart Voice Keyboard</string>
+    <string name="keyboard_label">Smart Voice Keyboard (Bangla &amp; English)</string>
+    <string name="settings_title">Keyboard Settings</string>
+    <string name="subtype_bn">বাংলা (Bengali)</string>
+    <string name="subtype_en">English (US)</string>
+    <string name="subtype_banglish">বাংলিশ ফোনেটিক (Banglish)</string>
+</resources>

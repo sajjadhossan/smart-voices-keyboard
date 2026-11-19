@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+release/
+*.apk
+*.aab
+*.exe
+*.dmg
+*.zip
+
+# Environment & credentials
+.env
+.env.local
+*.pem
+*.keystore
+*.jks
+local.properties
+
+# Android
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+
+# SQLite & App Data
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo

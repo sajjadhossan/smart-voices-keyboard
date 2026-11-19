@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Voice Keyboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-900 text-slate-100 select-none">
+  <!-- Title Bar -->
+  <header class="titlebar flex justify-between items-center px-4 py-2 bg-slate-950/80 border-b border-slate-800">
+    <div class="flex items-center gap-2 drag-region">
+      <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></div>
+      <span class="font-semibold text-sm tracking-wide text-slate-200">Smart Voice Keyboard</span>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v1.0.0</span>
+    </div>
+    <div class="flex items-center gap-2 no-drag">
+      <button id="btnMinimize" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white" title="Minimize">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+      </button>
+      <button id="btnClose" class="p-1 hover:bg-red-500/20 hover:text-red-400 rounded text-slate-400" title="Hide">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Bar -->
+  <nav class="flex border-b border-slate-800 bg-slate-900/60 px-2 py-1 gap-1 text-xs font-medium">
+    <button class="nav-btn active" data-tab="tab-voice">
+      <span>🎙️</span>
+      <span>ভয়েস টাইপিং (Voice)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-translate">
+      <span>🌐</span>
+      <span>অনুবাদ (Translate)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-phonetic">
+      <span>⌨️</span>
+      <span>বাংলিশ টু বাংলা (Phonetic)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-clipboard">
+      <span>📋</span>
+      <span>ক্লিপবোর্ড (Clipboard)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-settings">
+      <span>⚙️</span>
+      <span>সেটিংস (Settings)</span>
+    </button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="p-4 flex-1 overflow-y-auto">
+    <!-- TAB 1: Voice Dictation -->
+    <section id="tab-voice" class="tab-content active space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-slate-400">ভাষা (Language):</label>
+          <select id="voiceLanguageSelect" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200">
+            <option value="bn-BD" selected>বাংলা (Bangladesh)</option>
+            <option value="en-US">English (United States)</option>
+          </select>
+        </div>
+        <div id="sttStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">
+          Standby
+        </div>
+      </div>
+
+      <!-- Mic Waveform & Trigger -->
+      <div class="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-800/40 border border-slate-800">
+        <div class="waveform-container flex items-center justify-center gap-1.5 h-12 mb-4" id="audioWaveform">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+
+        <button id="btnToggleVoice" class="w-16 h-16 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 transition-all duration-200 transform active:scale-95">
+          <svg id="micIcon" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+          </svg>
+        </button>
+        <span id="voicePromptText" class="mt-3 text-xs text-slate-400">মাইকে চাপ দিয়ে কথা বলুন (Click to speak)</span>
+      </div>
+
+      <!-- Real-time Result Box -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
+          <span>লাইভ ট্রান্সক্রিপ্ট (Live Text):</span>
+          <div class="flex gap-2">
+            <button id="btnClearVoiceText" class="hover:text-slate-200">Clear</button>
+            <button id="btnCopyVoiceText" class="hover:text-slate-200">Copy</button>
+          </div>
+        </div>
+        <textarea id="voiceResultArea" rows="3" class="w-full bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-emerald-500" placeholder="কথা বলা শুরু করলে এখানে লেখা আসবে..."></textarea>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-2">
+        <button id="btnInjectVoiceToApp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-2 shadow">
+          <span>🚀 টাইপ করুন (Paste into Active App)</span>
+        </button>
+        <button id="btnAIProcessCommand" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow">
+          <span>✨ AI কমান্ড চালান</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 2: Live Translation -->
+    <section id="tab-translate" class="tab-content space-y-4">
+      <div class="flex items-center justify-between bg-slate-800/40 p-2 rounded-lg border border-slate-800 text-xs">
+        <span id="labelSourceLang" class="font-semibold text-emerald-400">English</span>
+        <button id="btnSwapTranslateLangs" class="p-1 hover:bg-slate-700 rounded text-slate-300" title="Swap languages">
+          ⇄ সোয়াপ
+        </button>
+        <span id="labelTargetLang" class="font-semibold text-emerald-400">বাংলা (Bengali)</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400">ইনপুট টেক্সট (Source Text):</label>
+          <textarea id="translateInput" rows="5" class="w-full bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-emerald-500" placeholder="Type or paste text to translate..."></textarea>
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400">অনুবাদ ফলাফল (Translation):</label>
+          <textarea id="translateOutput" rows="5" readonly class="w-full bg-slate-950/40 border border-slate-800 rounded-lg p-3 text-sm text-emerald-300 focus:outline-none" placeholder="অনুবাদ এখানে প্রদর্শিত হবে..."></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="btnExecuteTranslate" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-2">
+          <span>🌐 দ্রুত অনুবাদ করুন (Translate with Gemini)</span>
+        </button>
+        <button id="btnInjectTranslationToApp" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs flex items-center gap-2">
+          <span>🚀 অ্যাপে টাইপ করুন</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 3: Phonetic (Banglish to Bangla) -->
+    <section id="tab-phonetic" class="tab-content space-y-4">
+      <div class="p-3 bg-slate-800/40 border border-slate-800 rounded-lg text-xs text-slate-300 leading-relaxed">
+        <strong>ফোনেটিক মোড:</strong> ইংরেজিতে লিখলেই তা স্বয়ংক্রিয়ভাবে খাঁটি বাংলায় রূপান্তর হবে। যেমন: <code>ami bangla bhalobashi</code> ➔ <code>আমি বাংলা ভালোবাসি</code>।
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-slate-400">বাংলিশ লিখুন (Type Phonetic):</label>
+        <input type="text" id="phoneticInput" class="w-full bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" placeholder="e.g. kemon acho? dhonnobad..." />
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs text-slate-400">বাংলা রূপান্তর (Bangla Output):</label>
+        <div id="phoneticOutput" class="min-h-[60px] p-3 bg-slate-950/90 border border-slate-800 rounded-lg text-base text-emerald-400 font-medium"></div>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="btnInjectPhoneticToApp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-xs">
+          🚀 সক্রিয় অ্যাপে টাইপ করুন (Paste into App)
+        </button>
+        <button id="btnCopyPhonetic" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs">
+          কপি করুন (Copy)
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 4: Unlimited Clipboard Manager -->
+    <section id="tab-clipboard" class="tab-content space-y-3">
+      <div class="flex gap-2 items-center">
+        <input type="text" id="clipboardSearchInput" class="flex-1 bg-slate-950/70 border border-slate-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500" placeholder="ক্লিপবোর্ডে অনুসন্ধান করুন (Search clips)..." />
+        <button id="btnFilterPinned" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg text-slate-300">
+          ⭐ পিন করা
+        </button>
+        <button id="btnClearClipboardHistory" class="px-2.5 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs rounded-lg">
+          মুছুন (Clear)
+        </button>
+      </div>
+
+      <div id="clipboardList" class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+        <!-- Rendered clips -->
+      </div>
+    </section>
+
+    <!-- TAB 5: Settings -->
+    <section id="tab-settings" class="tab-content space-y-4">
+      <div class="space-y-3 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+        <h3 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Gemini AI কনফিগারেশন</h3>
+        <div class="space-y-1">
+          <label class="text-xs text-slate-300">Google Gemini API Key:</label>
+          <div class="flex gap-2">
+            <input type="password" id="settingApiKey" class="flex-1 bg-slate-950/70 border border-slate-800 rounded px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 font-mono" placeholder="AIzaSy..." />
+            <button id="btnTestApiKey" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded text-slate-200">
+              টেস্ট করুন
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400">বিনামূল্যে API কী সংগ্রহ করুন: <a href="https://aistudio.google.com/" target="_blank" class="text-emerald-400 underline">Google AI Studio</a></p>
+        </div>
+      </div>
+
+      <div class="space-y-3 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+        <h3 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">সাধারণ পছন্দসমূহ (Preferences)</h3>
+        
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="space-y-1">
+            <label class="text-slate-300">ডিফল্ট টাইপিং মোড:</label>
+            <select id="settingDefaultLanguage" class="w-full bg-slate-950/70 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="en">English</option>
+              <option value="banglish">বাংলিশ (Phonetic)</option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-slate-300">স্পিচ ইঞ্জিন (STT Engine):</label>
+            <select id="settingSttEngine" class="w-full bg-slate-950/70 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+              <option value="native">Native System Speech (Free, Fast)</option>
+              <option value="whisper">Open-Source Whisper (Local)</option>
+              <option value="vosk">Vosk Offline Model</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <label class="text-xs text-slate-300">সক্রিয় উইন্ডোতে অটো-পেস্ট (Auto-Paste on inject):</label>
+          <input type="checkbox" id="settingAutoPaste" class="w-4 h-4 accent-emerald-500 rounded cursor-pointer" />
+        </div>
+
+        <div class="flex items-center justify-between">
+          <label class="text-xs text-slate-300">উইন্ডো সর্বদা উপরে রাখুন (Always on top):</label>
+          <input type="checkbox" id="settingAlwaysOnTop" class="w-4 h-4 accent-emerald-500 rounded cursor-pointer" />
+        </div>
+      </div>
+
+      <button id="btnSaveSettings" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-xs shadow">
+        সংরক্ষণ করুন (Save Settings)
+      </button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

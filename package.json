@@ -1,0 +1,38 @@
+{
+  "name": "smart-voices-keyboard",
+  "version": "1.0.0",
+  "description": "Cross-platform voice keyboard application with free open-source STT, Gemini API translation, unlimited clipboard, and Bangla/English/Banglish typing for Android, Windows, and macOS.",
+  "author": "Sajjad Hossan",
+  "license": "MIT",
+  "main": "desktop/src/main/index.js",
+  "scripts": {
+    "start": "electron desktop/src/main/index.js",
+    "dev:desktop": "electron desktop/src/main/index.js --dev",
+    "build:desktop": "electron-builder --config desktop/electron-builder.yml",
+    "build:windows": "electron-builder --win --x64 --config desktop/electron-builder.yml",
+    "build:mac": "electron-builder --mac --universal --config desktop/electron-builder.yml",
+    "test:phonetic": "node core/test/phonetic.test.js",
+    "test:gemini": "node core/test/gemini.test.js",
+    "test:desktop": "node core/test/desktop-ipc.test.js",
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:desktop"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "keywords": [
+    "voice-keyboard",
+    "speech-to-text",
+    "bangla-keyboard",
+    "banglish",
+    "gemini-ai",
+    "translation",
+    "clipboard-manager",
+    "android-ime",
+    "windows",
+    "macos"
+  ]
+}

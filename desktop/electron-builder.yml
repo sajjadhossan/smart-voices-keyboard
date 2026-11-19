@@ -1,0 +1,55 @@
+appId: com.smartvoices.keyboard
+productName: Smart Voice Keyboard
+copyright: Copyright © 2026 Sajjad Hossan
+directories:
+  output: release
+  buildResources: desktop/src/assets
+
+files:
+  - "**/*"
+  - "!android/**"
+  - "!docs/**"
+  - "!.github/**"
+  - "!*.md"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: "${productName}-v${version}-windows-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Smart Voice Keyboard"
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  artifactName: "${productName}-v${version}-macOS-${arch}.${ext}"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  artifactName: "${productName}-v${version}-linux-${arch}.${ext}"
