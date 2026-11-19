@@ -17,19 +17,33 @@ class GeminiService(private var apiKey: String) {
     }
 
     suspend fun translateText(text: String, sourceLang: String, targetLang: String): Result<String> {
+        val direction = if (sourceLang == "en" && targetLang == "bn") {
+            "English to fluent natural Bengali"
+        } else {
+            "Bengali to fluent natural English"
+        }
+        val prompt = "You are a professional real-time translation engine. Translate the following from $direction. Output ONLY the translated text without explanations, greetings, quotes, or markdown."
+        return callGemini(prompt, text)
+    }
+
+    suspend fun executeSmartAction(text: String, actionType: String): Result<String> {
+        val prompt = when (actionType) {
+            "TRANSLATE_TO_BN" -> "Translate the text into natural, fluent Bengali. Output ONLY the translated text."
+            "TRANSLATE_TO_EN" -> "Translate the text into fluent, natural English. Output ONLY the translated text."
+            "FORMAL_EMAIL" -> "Convert this message into a complete, professional, courteous formal email including Subject and Body. Output ONLY the email."
+            "FIX_GRAMMAR" -> "Correct all spelling mistakes, typos, and grammatical errors in Bengali or English. Output ONLY the polished text."
+            "SUMMARIZE_BULLETS" -> "Summarize the text into clear bullet points. Output ONLY the bullets."
+            else -> "Process the text clearly and accurately."
+        }
+        return callGemini(prompt, text)
+    }
+
+    private suspend fun callGemini(systemPrompt: String, input: String): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
                 if (apiKey.isBlank()) {
                     return@withContext Result.failure(Exception("Gemini API Key is not set"))
                 }
-
-                val direction = if (sourceLang == "en" && targetLang == "bn") {
-                    "English to fluent natural Bengali"
-                } else {
-                    "Bengali to fluent natural English"
-                }
-
-                val systemPrompt = "You are a professional real-time translation engine. Translate the following from $direction. Output ONLY the translated text without explanations, greetings, quotes, or markdown."
 
                 val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
                 val connection = (url.openConnection() as HttpURLConnection).apply {
@@ -45,7 +59,7 @@ class GeminiService(private var apiKey: String) {
                         val userObj = JSONObject().apply {
                             put("role", "user")
                             val parts = JSONArray().apply {
-                                put(JSONObject().put("text", "$systemPrompt\n\n$text"))
+                                put(JSONObject().put("text", "$systemPrompt\n\n$input"))
                             }
                             put("parts", parts)
                         }
@@ -73,7 +87,7 @@ class GeminiService(private var apiKey: String) {
                         val outputText = parts.getJSONObject(0).getString("text").trim()
                         Result.success(outputText)
                     } else {
-                        Result.failure(Exception("No translation candidates returned"))
+                        Result.failure(Exception("No candidate content returned"))
                     }
                 } else {
                     val reader = BufferedReader(InputStreamReader(connection.errorStream))

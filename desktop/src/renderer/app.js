@@ -163,6 +163,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Smart AI Action Pills
+  document.querySelectorAll('.smart-ai-pill').forEach(pill => {
+    pill.addEventListener('click', async () => {
+      const actionType = pill.getAttribute('data-action');
+      const text = voiceResultArea.value.trim();
+      if (!text || !window.api) {
+        alert('অনুগ্রহ করে আগে কিছু টেক্সট লিখুন বা কথা বলুন।');
+        return;
+      }
+
+      const originalHtml = pill.innerHTML;
+      pill.innerHTML = '⏳ ...';
+      try {
+        const res = await window.api.executeSmartAction(text, actionType);
+        if (res && res.result) {
+          voiceResultArea.value = res.result;
+        }
+      } catch (err) {
+        alert('AI ত্রুটি: ' + err.message);
+      } finally {
+        pill.innerHTML = originalHtml;
+      }
+    });
+  });
+
   // -------------------------------------------------------------
   // TAB 2: Live Translation (Gemini)
   // -------------------------------------------------------------

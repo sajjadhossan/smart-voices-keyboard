@@ -15,8 +15,9 @@
     "test:phonetic": "node core/test/phonetic.test.js",
     "test:gemini": "node core/test/gemini.test.js",
     "test:desktop": "node core/test/desktop-ipc.test.js",
+    "test:commands": "node core/test/voice-commands.test.js",
     "test:backend": "node backend/test/server.test.js",
-    "test": "npm run test:phonetic && npm run test:gemini && npm run test:desktop && npm run test:backend"
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:desktop && npm run test:backend"
   },
   "dependencies": {
     "dotenv": "^16.4.7"

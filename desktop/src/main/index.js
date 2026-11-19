@@ -10,6 +10,7 @@ const { exec } = require('child_process');
 require('dotenv').config();
 
 const { GeminiTranslator } = require('../../core/gemini/translator');
+const { VoiceCommandEngine } = require('../../core/gemini/voice-commands');
 const { PhoneticEngine } = require('../../core/phonetic/phonetic-engine');
 const { ClipboardStore } = require('../../core/clipboard/clipboard-store');
 
@@ -43,6 +44,7 @@ try {
 }
 
 const geminiTranslator = new GeminiTranslator(appSettings.geminiApiKey);
+const voiceCommandEngine = new VoiceCommandEngine(appSettings.geminiApiKey);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -208,7 +210,11 @@ ipcMain.handle('gemini:translate', async (_, { text, sourceLang, targetLang }) =
 });
 
 ipcMain.handle('gemini:voice-command', async (_, { voiceInput }) => {
-  return await geminiTranslator.executeVoiceCommand(voiceInput);
+  return await voiceCommandEngine.process(voiceInput);
+});
+
+ipcMain.handle('gemini:smart-action', async (_, { text, actionType }) => {
+  return await voiceCommandEngine.process(text, actionType);
 });
 
 ipcMain.handle('gemini:validate-key', async (_, { key }) => {
@@ -252,6 +258,7 @@ ipcMain.handle('settings:get', async () => {
 ipcMain.handle('settings:save', async (_, { settings }) => {
   appSettings = { ...appSettings, ...settings };
   geminiTranslator.setApiKey(appSettings.geminiApiKey);
+  voiceCommandEngine.setApiKey(appSettings.geminiApiKey);
   if (mainWindow) {
     mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop);
   }

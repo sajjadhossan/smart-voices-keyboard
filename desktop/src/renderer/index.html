@@ -97,6 +97,25 @@
         <textarea id="voiceResultArea" rows="3" class="w-full bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-emerald-500" placeholder="কথা বলা শুরু করলে এখানে লেখা আসবে..."></textarea>
       </div>
 
+      <!-- Smart AI Action Presets -->
+      <div class="flex flex-wrap gap-1.5">
+        <button class="smart-ai-pill text-[11px] bg-slate-800 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded text-slate-300 transition border border-slate-700/60" data-action="TRANSLATE_TO_BN">
+          🌐 ➔ বাংলা
+        </button>
+        <button class="smart-ai-pill text-[11px] bg-slate-800 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded text-slate-300 transition border border-slate-700/60" data-action="TRANSLATE_TO_EN">
+          🌐 ➔ English
+        </button>
+        <button class="smart-ai-pill text-[11px] bg-slate-800 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded text-slate-300 transition border border-slate-700/60" data-action="FORMAL_EMAIL">
+          ✉️ ফরমাল ইমেইল
+        </button>
+        <button class="smart-ai-pill text-[11px] bg-slate-800 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded text-slate-300 transition border border-slate-700/60" data-action="FIX_GRAMMAR">
+          ✨ ব্যাকরণ ও বানান
+        </button>
+        <button class="smart-ai-pill text-[11px] bg-slate-800 hover:bg-indigo-600 hover:text-white px-2.5 py-1 rounded text-slate-300 transition border border-slate-700/60" data-action="SUMMARIZE_BULLETS">
+          📝 বুলেট সামারি
+        </button>
+      </div>
+
       <!-- Action Buttons -->
       <div class="flex gap-2">
         <button id="btnInjectVoiceToApp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-2 shadow">

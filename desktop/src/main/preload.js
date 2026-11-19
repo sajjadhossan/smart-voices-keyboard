@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('api', {
   
   executeVoiceCommand: (voiceInput) => 
     ipcRenderer.invoke('gemini:voice-command', { voiceInput }),
+
+  executeSmartAction: (text, actionType) => 
+    ipcRenderer.invoke('gemini:smart-action', { text, actionType }),
   
   validateApiKey: (key) => 
     ipcRenderer.invoke('gemini:validate-key', { key }),
