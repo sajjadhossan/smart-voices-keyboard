@@ -7,6 +7,7 @@
   "main": "desktop/src/main/index.js",
   "scripts": {
     "start": "electron desktop/src/main/index.js",
+    "start:backend": "node backend/src/server.js",
     "dev:desktop": "electron desktop/src/main/index.js --dev",
     "build:desktop": "electron-builder --config desktop/electron-builder.yml",
     "build:windows": "electron-builder --win --x64 --config desktop/electron-builder.yml",
@@ -14,7 +15,8 @@
     "test:phonetic": "node core/test/phonetic.test.js",
     "test:gemini": "node core/test/gemini.test.js",
     "test:desktop": "node core/test/desktop-ipc.test.js",
-    "test": "npm run test:phonetic && npm run test:gemini && npm run test:desktop"
+    "test:backend": "node backend/test/server.test.js",
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:desktop && npm run test:backend"
   },
   "dependencies": {
     "dotenv": "^16.4.7"

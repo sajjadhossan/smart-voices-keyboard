@@ -1,0 +1,73 @@
+// Prisma Schema for Smart Voice Keyboard Multi-Tenant Ecosystem
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  deleted_at  DateTime?
+
+  users       User[]
+  clips       ClipboardItem[]
+}
+
+model User {
+  id              String   @id @default(uuid())
+  tenant_id       String
+  organization    Organization @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  email           String   @unique
+  password_hash   String
+  full_name       String
+  role            String   @default("user") // super_admin, admin, user
+  device_sessions String?  // JSON array of active device tokens
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  deleted_at      DateTime?
+
+  clips           ClipboardItem[]
+}
+
+model ClipboardItem {
+  id              String   @id @default(uuid())
+  tenant_id       String
+  user_id         String
+  organization    Organization @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  client_id       String       // Client-generated UUID
+  text            String
+  source_device   String       // 'android', 'windows', 'macos'
+  is_pinned       Boolean      @default(false)
+  copy_count      Int          @default(1)
+  sync_version    Int          @default(1)
+  is_synced       Boolean      @default(true)
+
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+  deleted_at      DateTime?
+
+  @@index([tenant_id, user_id])
+  @@index([client_id])
+}
+
+model AppRelease {
+  id                   String   @id @default(uuid())
+  latest_version       String
+  minimum_version      String
+  apk_download_url     String
+  windows_download_url String
+  macos_download_url   String
+  release_notes_bn     String
+  release_notes_en     String
+  force_update         Boolean  @default(false)
+  created_at           DateTime @default(now())
+}
