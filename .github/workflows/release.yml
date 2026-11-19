@@ -19,6 +19,7 @@ jobs:
     name: Build All Targets
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -32,16 +33,29 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Android Build Step
+      # Android Setup & Build Step
+      - name: Set up JDK 17 for Android
+        if: matrix.target == 'android'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle 8.4 for Android
+        if: matrix.target == 'android'
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
+
       - name: Build Android APK
         if: matrix.target == 'android'
         run: |
           cd android
-          gradle wrapper || true
-          chmod +x gradlew || true
+          gradle wrapper --gradle-version 8.4
+          chmod +x gradlew
           cd app && keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" || true
           cd ..
-          ./gradlew assembleRelease || ./gradlew assembleDebug
+          ./gradlew assembleRelease --no-daemon --stacktrace
           mkdir -p ../release
           find app/build/outputs/apk/ -name "*.apk" -exec cp {} ../release/SmartVoiceKeyboard-android.apk \;
 

@@ -22,15 +22,11 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
-      - name: Grant Execute Permission to Gradlew
-        run: |
-          cd android
-          if [ ! -f gradlew ]; then
-            gradle wrapper
-          fi
-          chmod +x gradlew
+      - name: Setup Gradle 8.4
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
 
       - name: Generate Signing Keystore
         run: |
@@ -42,6 +38,8 @@ jobs:
       - name: Build Release APK
         run: |
           cd android
+          gradle wrapper --gradle-version 8.4
+          chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Prepare Artifact
