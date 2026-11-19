@@ -669,7 +669,13 @@ class SmartKeyboardService : InputMethodService() {
                         stopVoiceListening()
                     }
 
-                    override fun onPartialResults(partialResults: Bundle?) {}
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        if (!matches.isNullOrEmpty()) {
+                            // Show interim speech indication on toolbar
+                            btnMic.text = "🔴 ${matches[0].take(10)}..."
+                        }
+                    }
                     override fun onEvent(eventType: Int, params: Bundle?) {}
                 })
             }
@@ -680,6 +686,10 @@ class SmartKeyboardService : InputMethodService() {
             val langCode = if (currentMode == TypingMode.ENGLISH) "en-US" else "bn-BD"
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "কথা বলুন...")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            }
         }
 
         try {

@@ -34,12 +34,86 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   let isListening = false;
   let recognition = null;
+  let audioContext = null;
+  let analyser = null;
+  let micStream = null;
+  let visualizerAnimId = null;
+
   const btnToggleVoice = document.getElementById('btnToggleVoice');
   const audioWaveform = document.getElementById('audioWaveform');
+  const waveBars = audioWaveform ? audioWaveform.querySelectorAll('.wave-bar') : [];
   const voiceResultArea = document.getElementById('voiceResultArea');
   const voiceLanguageSelect = document.getElementById('voiceLanguageSelect');
   const sttStatusBadge = document.getElementById('sttStatusBadge');
   const voicePromptText = document.getElementById('voicePromptText');
+
+  // Online / Offline Monitor
+  function updateNetworkBadge() {
+    if (!navigator.onLine) {
+      sttStatusBadge.textContent = 'Offline (Local Mode)';
+      sttStatusBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium';
+    }
+  }
+  window.addEventListener('online', updateNetworkBadge);
+  window.addEventListener('offline', updateNetworkBadge);
+  updateNetworkBadge();
+
+  async function startAudioLevelVisualizer() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      audioContext = new AudioCtx();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.7;
+
+      const source = audioContext.createMediaStreamSource(micStream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const step = Math.max(1, Math.floor(dataArray.length / waveBars.length));
+
+      const updateBars = () => {
+        if (!isListening || !analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+
+        for (let i = 0; i < waveBars.length; i++) {
+          const val = (dataArray[i * step] || 0) / 255; // 0.0 to 1.0
+          const barHeight = Math.max(8, Math.round(8 + val * 36));
+          waveBars[i].style.height = `${barHeight}px`;
+          if (val > 0.3) {
+            waveBars[i].style.backgroundColor = '#10b981';
+          } else {
+            waveBars[i].style.backgroundColor = '#334155';
+          }
+        }
+        visualizerAnimId = requestAnimationFrame(updateBars);
+      };
+      updateBars();
+    } catch (err) {
+      console.warn('Audio Visualizer mic stream fallback:', err);
+    }
+  }
+
+  function stopAudioLevelVisualizer() {
+    if (visualizerAnimId) {
+      cancelAnimationFrame(visualizerAnimId);
+      visualizerAnimId = null;
+    }
+    waveBars.forEach(bar => {
+      bar.style.height = '8px';
+      bar.style.backgroundColor = '#334155';
+    });
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (audioContext && audioContext.state !== 'closed') {
+      audioContext.close();
+      audioContext = null;
+    }
+  }
 
   function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -56,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     recognition.onstart = () => {
       isListening = true;
-      audioWaveform.classList.add('waveform-active');
+      startAudioLevelVisualizer();
       btnToggleVoice.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
       btnToggleVoice.classList.add('bg-red-600', 'hover:bg-red-500', 'animate-pulse');
       sttStatusBadge.textContent = 'Listening...';
@@ -92,10 +166,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     recognition.onend = () => {
       isListening = false;
-      audioWaveform.classList.remove('waveform-active');
+      stopAudioLevelVisualizer();
       btnToggleVoice.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
       btnToggleVoice.classList.remove('bg-red-600', 'hover:bg-red-500', 'animate-pulse');
-      sttStatusBadge.textContent = 'Standby';
+      sttStatusBadge.textContent = navigator.onLine ? 'Standby' : 'Offline Mode';
       sttStatusBadge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400';
       voicePromptText.textContent = 'মাইকে চাপ দিয়ে কথা বলুন (Click to speak)';
     };
