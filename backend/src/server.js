@@ -111,7 +111,7 @@ function parseBody(req) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+const requestHandler = async (req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -288,7 +288,9 @@ const server = http.createServer(async (req, res) => {
 
   // Fallback 404
   return sendError(res, 404, 'Endpoint not found', 'not_found');
-});
+};
+
+const server = http.createServer(requestHandler);
 
 if (require.main === module) {
   server.listen(PORT, () => {
@@ -296,4 +298,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, db, generateToken, verifyToken };
+module.exports = { server, requestHandler, db, generateToken, verifyToken };
