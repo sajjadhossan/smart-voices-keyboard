@@ -285,6 +285,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     translateOutput.value = tempText;
   });
 
+  // Gboard-style live inline translation with 450ms debounce
+  let translateDebounceTimer = null;
+  translateInput?.addEventListener('input', () => {
+    clearTimeout(translateDebounceTimer);
+    const text = translateInput.value.trim();
+    if (!text) {
+      translateOutput.value = '';
+      return;
+    }
+    translateOutput.value = 'অনুবাদ হচ্ছে (Translating live)...';
+    translateDebounceTimer = setTimeout(async () => {
+      try {
+        const result = await window.api.translate(text, sourceLang, targetLang);
+        translateOutput.value = result;
+      } catch (err) {
+        translateOutput.value = 'Error: ' + err.message;
+      }
+    }, 450);
+  });
+
+  translateInput?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = translateOutput.value.trim();
+      if (text && window.api) {
+        await window.api.injectTextToActiveWindow(text);
+      }
+    }
+  });
+
   document.getElementById('btnExecuteTranslate')?.addEventListener('click', async () => {
     const text = translateInput.value.trim();
     if (!text || !window.api) return;

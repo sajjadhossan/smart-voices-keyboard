@@ -56,7 +56,7 @@ async function runBackendTests() {
 
     assert.strictEqual(verRes.statusCode, 200);
     assert.strictEqual(verRes.body.success, true);
-    assert.strictEqual(verRes.body.data.latestVersion, '1.4.0');
+    assert.strictEqual(verRes.body.data.latestVersion, '1.4.1');
     assert(verRes.body.data.apkDownloadUrl.includes('.apk'));
     console.log('  [PASS] Version parity API returns correct contract.');
 

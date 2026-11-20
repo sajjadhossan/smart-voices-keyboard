@@ -152,6 +152,8 @@ class SmartKeyboardService : InputMethodService() {
     private var liveTranslateSourceLang = "bn"
     private var liveTranslateTargetLang = "en"
     private val liveTranslateBuffer = StringBuilder()
+    private var lastTranslatedPreview = ""
+    private var liveTranslateDebounceJob: kotlinx.coroutines.Job? = null
     private lateinit var liveTranslateBar: LinearLayout
     private lateinit var tvLiveTranslatePreview: TextView
     private lateinit var btnLiveTranslateLangPill: Button
@@ -502,6 +504,7 @@ class SmartKeyboardService : InputMethodService() {
                 liveTranslateTargetLang = temp
                 text = if (liveTranslateSourceLang == "bn") "বাংলা ➔ English" else "English ➔ বাংলা"
                 tvLiveTranslatePreview.text = if (liveTranslateSourceLang == "bn") "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else "Type English (Space to translate to Bangla)..."
+                scheduleLiveTranslateDebounce()
             }
         }
         liveTranslateBar.addView(btnLiveTranslateLangPill)
@@ -515,6 +518,20 @@ class SmartKeyboardService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f)
         }
         liveTranslateBar.addView(tvLiveTranslatePreview)
+
+        // Instant commit / Send button: "✓ পাঠান"
+        val btnCommit = TextView(this).apply {
+            text = "✓ পাঠান"
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#10B981"))
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(6), dpToPx(4))
+            setOnClickListener {
+                triggerHapticAndSound()
+                commitCurrentLiveTranslation()
+            }
+        }
+        liveTranslateBar.addView(btnCommit)
 
         val btnClose = TextView(this).apply {
             text = "✕"
@@ -532,6 +549,74 @@ class SmartKeyboardService : InputMethodService() {
         rootLayout.addView(liveTranslateBar)
     }
 
+    private fun scheduleLiveTranslateDebounce() {
+        liveTranslateDebounceJob?.cancel()
+        val textToTranslate = if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+            PhoneticEngine.transliterateWord(phoneticBuffer.toString())
+        } else {
+            liveTranslateBuffer.toString()
+        }.trim()
+
+        if (textToTranslate.isEmpty()) {
+            tvLiveTranslatePreview.text = if (liveTranslateSourceLang == "bn") "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else "Type English (Space to translate to Bangla)..."
+            lastTranslatedPreview = ""
+            return
+        }
+
+        liveTranslateDebounceJob = serviceScope.launch {
+            kotlinx.coroutines.delay(450)
+            val res = geminiService.translateText(textToTranslate, liveTranslateSourceLang, liveTranslateTargetLang)
+            res.onSuccess { translated ->
+                mainHandler.post {
+                    if (isLiveTranslateActive) {
+                        lastTranslatedPreview = translated
+                        tvLiveTranslatePreview.text = "$textToTranslate ➔ $translated"
+                    }
+                }
+            }
+        }
+    }
+
+    private fun commitCurrentLiveTranslation() {
+        val ic = currentInputConnection ?: return
+        val rawInput = if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+            val translit = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
+            phoneticBuffer.clear()
+            translit
+        } else {
+            val buf = liveTranslateBuffer.toString()
+            liveTranslateBuffer.clear()
+            buf
+        }.trim()
+
+        if (rawInput.isEmpty() && lastTranslatedPreview.isEmpty()) return
+
+        if (lastTranslatedPreview.isNotEmpty()) {
+            ic.commitText("$lastTranslatedPreview ", 1)
+            tvLiveTranslatePreview.text = "✓ সম্পন্ন: $lastTranslatedPreview"
+            lastTranslatedPreview = ""
+            updateSuggestions()
+            return
+        }
+
+        tvLiveTranslatePreview.text = "⏳ অনুবাদ হচ্ছে: $rawInput..."
+        serviceScope.launch {
+            val res = geminiService.translateText(rawInput, liveTranslateSourceLang, liveTranslateTargetLang)
+            res.onSuccess { translated ->
+                mainHandler.post {
+                    ic.commitText("$translated ", 1)
+                    tvLiveTranslatePreview.text = "✓ সম্পন্ন: $translated"
+                    updateSuggestions()
+                }
+            }.onFailure {
+                mainHandler.post {
+                    ic.commitText("$rawInput ", 1)
+                    updateSuggestions()
+                }
+            }
+        }
+    }
+
     private fun toggleLiveTranslate() {
         val apiKey = prefs.getString("gemini_api_key", "") ?: ""
         if (apiKey.isBlank()) {
@@ -545,6 +630,9 @@ class SmartKeyboardService : InputMethodService() {
 
         isLiveTranslateActive = !isLiveTranslateActive
         liveTranslateBuffer.clear()
+        lastTranslatedPreview = ""
+        liveTranslateDebounceJob?.cancel()
+
         if (::liveTranslateBar.isInitialized) {
             liveTranslateBar.visibility = if (isLiveTranslateActive) View.VISIBLE else View.GONE
             if (isLiveTranslateActive) {
@@ -1074,6 +1162,12 @@ class SmartKeyboardService : InputMethodService() {
                 if (isLiveTranslateActive && liveTranslateBuffer.isNotEmpty()) {
                     liveTranslateBuffer.deleteCharAt(liveTranslateBuffer.length - 1)
                     tvLiveTranslatePreview.text = if (liveTranslateBuffer.isEmpty()) "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else liveTranslateBuffer.toString()
+                    scheduleLiveTranslateDebounce()
+                } else if (isLiveTranslateActive && currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+                    phoneticBuffer.deleteCharAt(phoneticBuffer.length - 1)
+                    val bengali = if (phoneticBuffer.isEmpty()) "" else PhoneticEngine.transliterateWord(phoneticBuffer.toString())
+                    tvLiveTranslatePreview.text = if (bengali.isEmpty()) "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else bengali
+                    scheduleLiveTranslateDebounce()
                 } else if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     phoneticBuffer.deleteCharAt(phoneticBuffer.length - 1)
                     if (phoneticBuffer.isEmpty()) {
@@ -1089,29 +1183,10 @@ class SmartKeyboardService : InputMethodService() {
                 }
             }
             "↵" -> {
-                if (isLiveTranslateActive && liveTranslateBuffer.isNotEmpty()) {
-                    val toTranslate = liveTranslateBuffer.toString()
-                    liveTranslateBuffer.clear()
-                    tvLiveTranslatePreview.text = "⏳ অনুবাদ হচ্ছে: $toTranslate..."
-                    serviceScope.launch {
-                        val res = geminiService.translateText(toTranslate, liveTranslateSourceLang, liveTranslateTargetLang)
-                        res.onSuccess { translated ->
-                            mainHandler.post {
-                                ic.commitText(translated, 1)
-                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
-                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
-                                tvLiveTranslatePreview.text = "✓ সম্পন্ন: $translated"
-                                updateSuggestions()
-                            }
-                        }.onFailure {
-                            mainHandler.post {
-                                ic.commitText(toTranslate, 1)
-                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
-                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
-                                updateSuggestions()
-                            }
-                        }
-                    }
+                if (isLiveTranslateActive && (liveTranslateBuffer.isNotEmpty() || phoneticBuffer.isNotEmpty())) {
+                    commitCurrentLiveTranslation()
+                    ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
+                    ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
                 } else {
                     flushPhoneticBuffer()
                     ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
@@ -1125,32 +1200,7 @@ class SmartKeyboardService : InputMethodService() {
             }
             "Space" -> {
                 if (isLiveTranslateActive && (liveTranslateBuffer.isNotEmpty() || phoneticBuffer.isNotEmpty())) {
-                    val inputPart = if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
-                        val translit = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
-                        phoneticBuffer.clear()
-                        translit
-                    } else {
-                        val buf = liveTranslateBuffer.toString()
-                        liveTranslateBuffer.clear()
-                        buf
-                    }
-
-                    tvLiveTranslatePreview.text = "⏳ অনুবাদ হচ্ছে: $inputPart..."
-                    serviceScope.launch {
-                        val res = geminiService.translateText(inputPart, liveTranslateSourceLang, liveTranslateTargetLang)
-                        res.onSuccess { translated ->
-                            mainHandler.post {
-                                ic.commitText("$translated ", 1)
-                                tvLiveTranslatePreview.text = "✓ $translated"
-                                updateSuggestions()
-                            }
-                        }.onFailure {
-                            mainHandler.post {
-                                ic.commitText("$inputPart ", 1)
-                                updateSuggestions()
-                            }
-                        }
-                    }
+                    commitCurrentLiveTranslation()
                 } else if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     val transliterated = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
                     ic.commitText("$transliterated ", 1)
@@ -1172,6 +1222,7 @@ class SmartKeyboardService : InputMethodService() {
                         liveTranslateBuffer.append(charToCommit)
                         tvLiveTranslatePreview.text = liveTranslateBuffer.toString()
                     }
+                    scheduleLiveTranslateDebounce()
                 } else if (currentMode == TypingMode.BANGLISH) {
                     phoneticBuffer.append(charToCommit)
                     ic.setComposingText(phoneticBuffer.toString(), 1)

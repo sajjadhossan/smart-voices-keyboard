@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.4.0',
+    latestVersion: '1.4.1',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.4.0-build5-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.4.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.4.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.4.1-build6-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.4.1-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.4.1-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৪.০: জিবোর্ড-স্টাইল লাইভ ইনলাইন অনুবাদ বার (বাংলা লিখলে সরাসরি ইংরেজিতে টাইপ), প্রিডিকশন ইঞ্জিন (ইংরেজি ও বাংলা পরবর্তী শব্দ সাজেস্ট), এবং ৭টি প্রিমিয়াম আধুনিক থিম।',
-      en: 'New version 1.4.0: Gboard-style Live Inline Translation Bar (type Bangla, commits English), Next-Word & Auto-Completion Prediction Engine, and 7 Premium Modern Themes.'
+      bn: 'নতুন সংস্করণ ১.৪.১ (Phase 1): পূর্ণাঙ্গ জিবোর্ড-স্টাইল লাইভ ইনলাইন অনুবাদ বার — টাইপ করার সাথে সাথে লাইভ প্রিভিউ, ডেবউন্সড এআই ট্রান্সলেশন, কুইক পাঠান বাটন এবং ডেস্কটপ লাইভ অটো-ইনজেক্ট।',
+      en: 'New version 1.4.1 (Phase 1): Full Gboard-style live inline translation bar with real-time preview, debounced AI translation, quick commit button, and desktop live auto-inject.'
     },
     forceUpdate: false
   }
