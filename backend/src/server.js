@@ -54,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.7.0',
+    latestVersion: '1.8.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.7.0-build10-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.7.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.7.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.8.0-build11-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.8.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.8.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৭.০ (ফেজ ৫): ক্রস-প্ল্যাটফর্ম ব্যাকআপ/রিস্টোর ও AES-256 এনক্রিপশন — সেটিংস, ডিকশনারি ও ক্লিপবোর্ড ইনস্ট্যান্ট JSON ব্যাকআপ এক্সপোর্ট/ইমপোর্ট এবং ক্লাউড ব্যাকআপ এপিআই।',
-      en: 'New version 1.7.0 (Phase 5): Cross-Platform Backup/Restore & AES-256-GCM encryption with instant JSON backup export/import and cloud backup API.'
+      bn: 'নতুন সংস্করণ ১.৮.০ (ফেজ ৬): একসিলারেটেড কন্টিনিউয়াস লং-প্রেস ডিলিট ইঞ্জিন ও সোয়াইপ জেসচার — ডিলিট কি চেপে ধরে রাখলে দ্রুত শব্দ-ধরে-ধরে ডিলিট, ডিলিটে সোয়াইপ-লেফট ডিলিট এবং স্পেসবারে কার্সর ট্র্যাকপ্যাড স্লাইডার।',
+      en: 'New version 1.8.0 (Phase 6): Accelerated Continuous Long-Press Deletion Engine & Gesture Navigation — rapid hold-to-delete with word boundaries, swipe-left word delete, and spacebar cursor slider trackpad.'
     },
     forceUpdate: false
   }

@@ -55,6 +55,12 @@ A modern, commercial-grade, cross-platform voice keyboard application for **Andr
     - Automatic deduplication and conflict-free merging of clipboard history and custom user dictionary.
     - Centralized authenticated backup API (`POST /api/backup/export` and `POST /api/backup/import`).
 
+11. **🚀 Accelerated Continuous Deletion & Gesture Navigation (Phase 6, v1.8.0)**:
+    - Adaptive continuous hold-to-delete with acceleration: smooth character ramp transitioning to rapid word-by-word wipeout after 1.2s.
+    - Gesture Swipe-to-Delete: Swipe left on backspace key to instantly delete preceding words with physical haptic confirmation.
+    - Spacebar Cursor Trackpad: Slide finger horizontally on spacebar to navigate cursor through text without touching the screen.
+    - Desktop & Web Unicode word deletion (`Ctrl+Backspace` / `Alt+Backspace` and hold-to-delete buttons).
+
 ---
 
 ## 🏗️ Project Architecture

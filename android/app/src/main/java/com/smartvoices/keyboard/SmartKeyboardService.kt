@@ -1135,30 +1135,98 @@ class SmartKeyboardService : InputMethodService() {
             keyLayout.addView(hintLabel)
         }
 
-        // Auto-repeat backspace on hold
+        // Auto-repeat backspace on hold with Phase 6 Acceleration & Swipe-to-Delete
         if (key == "⌫") {
-            val repeatInterval = 45L
-            val initialDelay = 350L
+            var pressStartTime = 0L
+            var startX = 0f
+            var isSwipeMode = false
+
             val repeatRunnable = object : Runnable {
                 override fun run() {
+                    val elapsed = SystemClock.uptimeMillis() - pressStartTime
                     triggerHapticAndSound()
-                    handleKeyPress("⌫")
-                    mainHandler.postDelayed(this, repeatInterval)
+
+                    if (elapsed >= 1200L) {
+                        // Rapid word/chunk deletion phase (> 1.2s)
+                        handleWordOrChunkDelete()
+                        mainHandler.postDelayed(this, 75L)
+                    } else {
+                        // Character deletion phase with acceleration (70ms -> 30ms)
+                        handleKeyPress("⌫")
+                        val progress = ((elapsed - 350L).toFloat() / 850f).coerceIn(0f, 1f)
+                        val interval = (70L - (progress * 40L)).toLong().coerceIn(30L, 70L)
+                        mainHandler.postDelayed(this, interval)
+                    }
                 }
             }
 
             keyLayout.setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
+                        pressStartTime = SystemClock.uptimeMillis()
+                        startX = event.x
+                        isSwipeMode = false
                         triggerHapticAndSound()
                         handleKeyPress("⌫")
-                        mainHandler.postDelayed(repeatRunnable, initialDelay)
+                        mainHandler.postDelayed(repeatRunnable, 350L)
                         v.isPressed = true
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val deltaX = event.x - startX
+                        if (deltaX < -dpToPx(45) && !isSwipeMode) {
+                            // User swiped left on delete key! Delete previous word with haptic feedback
+                            isSwipeMode = true
+                            mainHandler.removeCallbacks(repeatRunnable)
+                            handleWordOrChunkDelete()
+                            triggerHapticAndSound()
+                        }
                         true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         mainHandler.removeCallbacks(repeatRunnable)
                         v.isPressed = false
+                        true
+                    }
+                    else -> false
+                }
+            }
+        } else if (key == "Space") {
+            // Spacebar with Tap & Cursor Slider Trackpad
+            var spaceStartX = 0f
+            var isSpaceDragging = false
+
+            keyLayout.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        spaceStartX = event.x
+                        isSpaceDragging = false
+                        v.isPressed = true
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val deltaX = event.x - spaceStartX
+                        val threshold = dpToPx(16).toFloat()
+                        if (Math.abs(deltaX) > threshold) {
+                            isSpaceDragging = true
+                            if (deltaX > threshold) {
+                                moveCursor(1)
+                                spaceStartX = event.x
+                                triggerHapticAndSound()
+                            } else if (deltaX < -threshold) {
+                                moveCursor(-1)
+                                spaceStartX = event.x
+                                triggerHapticAndSound()
+                            }
+                        }
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.isPressed = false
+                        if (!isSpaceDragging) {
+                            triggerHapticAndSound()
+                            handleKeyPress("Space")
+                        }
                         true
                     }
                     else -> false
@@ -1219,10 +1287,11 @@ class SmartKeyboardService : InputMethodService() {
                 } else if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     phoneticBuffer.deleteCharAt(phoneticBuffer.length - 1)
                     if (phoneticBuffer.isEmpty()) {
+                        ic.setComposingText("", 1)
                         ic.finishComposingText()
-                        ic.deleteSurroundingText(1, 0)
                     } else {
-                        ic.setComposingText(phoneticBuffer.toString(), 1)
+                        val bengali = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
+                        ic.setComposingText(bengali, 1)
                     }
                     updateSuggestions()
                 } else {
@@ -1297,6 +1366,86 @@ class SmartKeyboardService : InputMethodService() {
                 ic.commitText(symbol, 1)
             }
         }
+    }
+
+    /**
+     * Phase 6: Rapid Continuous Word / Chunk Deletion Engine
+     * Safely deletes preceding words or whitespace blocks in one motion.
+     */
+    private fun handleWordOrChunkDelete() {
+        val ic = currentInputConnection ?: return
+
+        if (isLiveTranslateActive && (liveTranslateBuffer.isNotEmpty() || phoneticBuffer.isNotEmpty())) {
+            liveTranslateBuffer.clear()
+            phoneticBuffer.clear()
+            tvLiveTranslatePreview.text = "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..."
+            scheduleLiveTranslateDebounce()
+            return
+        }
+
+        if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+            phoneticBuffer.clear()
+            ic.setComposingText("", 1)
+            ic.finishComposingText()
+            updateSuggestions()
+            return
+        }
+
+        val textBefore = ic.getTextBeforeCursor(150, 0)?.toString() ?: ""
+        if (textBefore.isEmpty()) {
+            ic.deleteSurroundingText(1, 0)
+            updateSuggestions()
+            return
+        }
+
+        var index = textBefore.length
+
+        // 1. Skip trailing whitespace if present
+        while (index > 0 && Character.isWhitespace(textBefore[index - 1])) {
+            index--
+        }
+
+        if (index == 0) {
+            ic.deleteSurroundingText(textBefore.length, 0)
+            updateSuggestions()
+            return
+        }
+
+        val isPunct = { ch: Char -> ",.!?;:-–—\"'`()[]{}।॥".indexOf(ch) >= 0 }
+
+        if (isPunct(textBefore[index - 1])) {
+            while (index > 0 && isPunct(textBefore[index - 1])) {
+                index--
+            }
+        } else {
+            while (index > 0 && !Character.isWhitespace(textBefore[index - 1]) && !isPunct(textBefore[index - 1])) {
+                index--
+            }
+        }
+
+        val deleteCount = textBefore.length - index
+        if (deleteCount > 0) {
+            ic.deleteSurroundingText(deleteCount, 0)
+            updateSuggestions()
+        } else {
+            ic.deleteSurroundingText(1, 0)
+            updateSuggestions()
+        }
+    }
+
+    /**
+     * Phase 6: Spacebar Cursor Slider Trackpad
+     * Moves cursor left (-1) or right (+1) cleanly.
+     */
+    private fun moveCursor(direction: Int) {
+        val ic = currentInputConnection ?: return
+        val keyCode = if (direction < 0) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT
+        } else {
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+        }
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, keyCode))
+        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, keyCode))
     }
 
     private fun flushPhoneticBuffer() {

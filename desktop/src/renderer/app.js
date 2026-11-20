@@ -247,6 +247,125 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btnClearVoiceText')?.addEventListener('click', () => {
     voiceResultArea.value = '';
+    voiceResultArea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  // -------------------------------------------------------------
+  // Phase 6: Continuous Accelerated Hold-to-Delete & Word Boundary
+  // -------------------------------------------------------------
+  function getWordDeletionCount(textBefore) {
+    if (!textBefore || textBefore.length === 0) return 0;
+    let index = textBefore.length;
+    while (index > 0 && /\s/.test(textBefore[index - 1])) {
+      index--;
+    }
+    if (index === 0) return textBefore.length;
+    const isPunct = (ch) => /[\.,!?;:\-–—"'`\(\)\[\]\{\}।॥]/.test(ch);
+    if (isPunct(textBefore[index - 1])) {
+      while (index > 0 && isPunct(textBefore[index - 1])) {
+        index--;
+      }
+      return textBefore.length - index;
+    }
+    while (index > 0 && !/\s/.test(textBefore[index - 1]) && !isPunct(textBefore[index - 1])) {
+      index--;
+    }
+    return textBefore.length - index;
+  }
+
+  function deletePreviousWord(inputElement) {
+    if (!inputElement) return;
+    const start = inputElement.selectionStart;
+    const end = inputElement.selectionEnd;
+    if (start !== end) {
+      inputElement.setRangeText('', start, end, 'end');
+      inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+    const val = inputElement.value;
+    const textBefore = val.slice(0, start);
+    const count = getWordDeletionCount(textBefore);
+    if (count > 0) {
+      inputElement.setRangeText('', start - count, start, 'end');
+      inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  function attachHoldToDelete(button, inputElement) {
+    if (!button || !inputElement) return;
+    let holdTimer = null;
+    let repeatTimer = null;
+    let startTime = 0;
+
+    const stop = () => {
+      clearTimeout(holdTimer);
+      clearInterval(repeatTimer);
+      holdTimer = null;
+      repeatTimer = null;
+    };
+
+    button.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startTime = Date.now();
+      deletePreviousWord(inputElement);
+
+      holdTimer = setTimeout(() => {
+        repeatTimer = setInterval(() => {
+          deletePreviousWord(inputElement);
+        }, 110);
+      }, 350);
+    });
+
+    button.addEventListener('mouseup', stop);
+    button.addEventListener('mouseleave', stop);
+    button.addEventListener('touchend', stop);
+    button.addEventListener('touchcancel', stop);
+
+    button.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      startTime = Date.now();
+      deletePreviousWord(inputElement);
+
+      holdTimer = setTimeout(() => {
+        repeatTimer = setInterval(() => {
+          deletePreviousWord(inputElement);
+        }, 110);
+      }, 350);
+    });
+  }
+
+  // Intercept Ctrl+Backspace or Alt+Backspace on inputs for intelligent Unicode word deletion
+  [document.getElementById('voiceResultArea'), document.getElementById('translateInput'), document.getElementById('phoneticInput')].forEach(input => {
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.altKey) && e.key === 'Backspace') {
+        e.preventDefault();
+        deletePreviousWord(input);
+      }
+    });
+  });
+
+  // Attach to UI buttons
+  attachHoldToDelete(document.getElementById('btnDeleteWordVoiceText'), document.getElementById('voiceResultArea'));
+  attachHoldToDelete(document.getElementById('btnDelWordTranslate'), document.getElementById('translateInput'));
+  attachHoldToDelete(document.getElementById('btnDelWordPhonetic'), document.getElementById('phoneticInput'));
+
+  document.getElementById('btnClearTranslate')?.addEventListener('click', () => {
+    const el = document.getElementById('translateInput');
+    if (el) {
+      el.value = '';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+
+  document.getElementById('btnClearPhonetic')?.addEventListener('click', () => {
+    const el = document.getElementById('phoneticInput');
+    const out = document.getElementById('phoneticOutput');
+    if (el) {
+      el.value = '';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (out) out.textContent = '';
   });
 
   document.getElementById('btnCopyVoiceText')?.addEventListener('click', () => {
