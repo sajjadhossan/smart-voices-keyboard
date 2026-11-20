@@ -33,6 +33,7 @@ import com.smartvoices.keyboard.clipboard.ClipEntry
 import com.smartvoices.keyboard.clipboard.ClipboardDbHelper
 import com.smartvoices.keyboard.gemini.GeminiService
 import com.smartvoices.keyboard.phonetic.PhoneticEngine
+import com.smartvoices.keyboard.prediction.PredictionEngine
 import com.smartvoices.keyboard.ui.SettingsActivity
 import com.smartvoices.keyboard.ui.VoiceInputDialogActivity
 import com.smartvoices.keyboard.ui.VoicePermissionActivity
@@ -105,6 +106,36 @@ class SmartKeyboardService : InputMethodService() {
             actionKeyBg = Color.parseColor("#6366F1"),
             textColor = Color.parseColor("#E0E7FF"),
             accentColor = Color.parseColor("#6366F1")
+        ),
+        "ocean" to KeyboardTheme(
+            name = "Ocean Blue",
+            background = Color.parseColor("#0C1A30"),
+            toolbarBg = Color.parseColor("#152C4F"),
+            keyBg = Color.parseColor("#1A365D"),
+            specialKeyBg = Color.parseColor("#2A4365"),
+            actionKeyBg = Color.parseColor("#0284C7"),
+            textColor = Color.parseColor("#F0F9FF"),
+            accentColor = Color.parseColor("#38BDF8")
+        ),
+        "forest" to KeyboardTheme(
+            name = "Forest Emerald",
+            background = Color.parseColor("#06281E"),
+            toolbarBg = Color.parseColor("#0A3D2E"),
+            keyBg = Color.parseColor("#0F4D3A"),
+            specialKeyBg = Color.parseColor("#135E47"),
+            actionKeyBg = Color.parseColor("#10B981"),
+            textColor = Color.parseColor("#ECFDF5"),
+            accentColor = Color.parseColor("#34D399")
+        ),
+        "sunset" to KeyboardTheme(
+            name = "Sunset Flame",
+            background = Color.parseColor("#29120B"),
+            toolbarBg = Color.parseColor("#3E1C12"),
+            keyBg = Color.parseColor("#542417"),
+            specialKeyBg = Color.parseColor("#6A2F1F"),
+            actionKeyBg = Color.parseColor("#F97316"),
+            textColor = Color.parseColor("#FFF7ED"),
+            accentColor = Color.parseColor("#FB923C")
         )
     )
 
@@ -115,6 +146,15 @@ class SmartKeyboardService : InputMethodService() {
     private var isGeminiVoiceActive = false
     private var speechRecognizer: SpeechRecognizer? = null
     private lateinit var geminiAudioRecorder: GeminiAudioRecorder
+
+    // Gboard-Style Live Inline Translation
+    private var isLiveTranslateActive = false
+    private var liveTranslateSourceLang = "bn"
+    private var liveTranslateTargetLang = "en"
+    private val liveTranslateBuffer = StringBuilder()
+    private lateinit var liveTranslateBar: LinearLayout
+    private lateinit var tvLiveTranslatePreview: TextView
+    private lateinit var btnLiveTranslateLangPill: Button
 
     private lateinit var clipboardDb: ClipboardDbHelper
     private lateinit var geminiService: GeminiService
@@ -248,6 +288,7 @@ class SmartKeyboardService : InputMethodService() {
         }
 
         buildGboardToolbar(currentTheme)
+        buildLiveTranslateBar(currentTheme)
         buildSuggestionBar(currentTheme)
 
         contentContainer = FrameLayout(this).apply {
@@ -268,6 +309,7 @@ class SmartKeyboardService : InputMethodService() {
         rootLayout.removeAllViews()
 
         buildGboardToolbar(currentTheme)
+        buildLiveTranslateBar(currentTheme)
         buildSuggestionBar(currentTheme)
 
         contentContainer = FrameLayout(this).apply {
@@ -318,7 +360,13 @@ class SmartKeyboardService : InputMethodService() {
         }
 
         btnTranslate = createGboardIconButton(translateLabel, theme.toolbarBg, theme.textColor) {
-            performQuickTranslate()
+            toggleLiveTranslate()
+        }.apply {
+            setOnLongClickListener {
+                triggerHapticAndSound()
+                performQuickTranslate()
+                true
+            }
         }
         toolsContainer.addView(btnTranslate)
 
@@ -420,6 +468,96 @@ class SmartKeyboardService : InputMethodService() {
         return (dp * density).toInt()
     }
 
+    /**
+     * Gboard-style Live Inline Translation Bar
+     */
+    private fun buildLiveTranslateBar(theme: KeyboardTheme) {
+        liveTranslateBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            visibility = if (isLiveTranslateActive) View.VISIBLE else View.GONE
+            setBackgroundColor(theme.specialKeyBg)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpToPx(8), dpToPx(3), dpToPx(8), dpToPx(3))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(38)
+            )
+        }
+
+        btnLiveTranslateLangPill = Button(this).apply {
+            text = if (liveTranslateSourceLang == "bn") "বাংলা ➔ English" else "English ➔ বাংলা"
+            textSize = 10f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            background = createRoundedDrawable(theme.actionKeyBg, dpToPx(10))
+            setPadding(dpToPx(8), dpToPx(2), dpToPx(8), dpToPx(2))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dpToPx(28)
+            )
+            setOnClickListener {
+                triggerHapticAndSound()
+                val temp = liveTranslateSourceLang
+                liveTranslateSourceLang = liveTranslateTargetLang
+                liveTranslateTargetLang = temp
+                text = if (liveTranslateSourceLang == "bn") "বাংলা ➔ English" else "English ➔ বাংলা"
+                tvLiveTranslatePreview.text = if (liveTranslateSourceLang == "bn") "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else "Type English (Space to translate to Bangla)..."
+            }
+        }
+        liveTranslateBar.addView(btnLiveTranslateLangPill)
+
+        tvLiveTranslatePreview = TextView(this).apply {
+            text = if (liveTranslateSourceLang == "bn") "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else "Type English (Space to translate to Bangla)..."
+            textSize = 11f
+            setTextColor(theme.textColor)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpToPx(8), 0, dpToPx(4), 0)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f)
+        }
+        liveTranslateBar.addView(tvLiveTranslatePreview)
+
+        val btnClose = TextView(this).apply {
+            text = "✕"
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
+            setOnClickListener {
+                triggerHapticAndSound()
+                toggleLiveTranslate()
+            }
+        }
+        liveTranslateBar.addView(btnClose)
+
+        rootLayout.addView(liveTranslateBar)
+    }
+
+    private fun toggleLiveTranslate() {
+        val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+        if (apiKey.isBlank()) {
+            Toast.makeText(this, "⚠️ লাইভ অনুবাদের জন্য সেটিংসে Gemini API Key দিন", Toast.LENGTH_LONG).show()
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+            return
+        }
+
+        isLiveTranslateActive = !isLiveTranslateActive
+        liveTranslateBuffer.clear()
+        if (::liveTranslateBar.isInitialized) {
+            liveTranslateBar.visibility = if (isLiveTranslateActive) View.VISIBLE else View.GONE
+            if (isLiveTranslateActive) {
+                tvLiveTranslatePreview.text = if (liveTranslateSourceLang == "bn") "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else "Type English (Space to translate to Bangla)..."
+                btnTranslate.setTextColor(Color.parseColor("#10B981"))
+                Toast.makeText(this, "🌐 লাইভ অনুবাদ চালু হয়েছে", Toast.LENGTH_SHORT).show()
+            } else {
+                val theme = getCurrentTheme()
+                btnTranslate.setTextColor(theme.textColor)
+            }
+        }
+    }
+
     private fun buildSuggestionBar(theme: KeyboardTheme) {
         suggestionBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -436,39 +574,49 @@ class SmartKeyboardService : InputMethodService() {
     }
 
     /**
-     * Smart Suggestion Bar with setComposingText integration (Zero Duplication Bug)
+     * Smart Suggestion Bar with PredictionEngine & Next-Word Completion
      */
     private fun updateSuggestions() {
-        if (currentMode != TypingMode.BANGLISH || phoneticBuffer.isEmpty()) {
+        suggestionBar.removeAllViews()
+        val currentTheme = getCurrentTheme()
+        val ic = currentInputConnection
+
+        val candidates = mutableListOf<String>()
+
+        if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+            val rawInput = phoneticBuffer.toString()
+            val transliterated = PhoneticEngine.transliterateWord(rawInput)
+            candidates.add(transliterated)
+            if (rawInput != transliterated) {
+                candidates.add(rawInput)
+            }
+            if (transliterated.isNotEmpty()) {
+                val lastChar = transliterated.last()
+                if (lastChar !in listOf('া', 'ি', 'ী', 'ু', 'ূ', 'ে', 'ৈ', 'ো', 'ৌ', '্')) {
+                    candidates.add(transliterated + "া")
+                    candidates.add(transliterated + "ের")
+                }
+            }
+            val preds = PredictionEngine.getPredictions(transliterated, "", true)
+            candidates.addAll(preds)
+        } else if (currentMode == TypingMode.ENGLISH) {
+            val prevText = ic?.getTextBeforeCursor(40, 0)?.toString() ?: ""
+            val preds = PredictionEngine.getPredictions("", prevText, false)
+            candidates.addAll(preds)
+        } else if (currentMode == TypingMode.BANGLA) {
+            val prevText = ic?.getTextBeforeCursor(40, 0)?.toString() ?: ""
+            val preds = PredictionEngine.getPredictions("", prevText, true)
+            candidates.addAll(preds)
+        }
+
+        val distinctList = candidates.distinct().take(5)
+        if (distinctList.isEmpty()) {
             suggestionBar.visibility = View.GONE
-            suggestionBar.removeAllViews()
             return
         }
 
         suggestionBar.visibility = View.VISIBLE
-        suggestionBar.removeAllViews()
-        val currentTheme = getCurrentTheme()
-
-        val rawInput = phoneticBuffer.toString()
-        val transliterated = PhoneticEngine.transliterateWord(rawInput)
-
-        // Suggestion list: 1st Bengali transliteration | 2nd Raw English typed | 3rd Phonetic alternatives
-        val candidates = mutableListOf<String>()
-        candidates.add(transliterated)
-        if (rawInput != transliterated) {
-            candidates.add(rawInput)
-        }
-
-        // Add common next-letter / suffix suggestions based on transliteration
-        if (transliterated.isNotEmpty()) {
-            val lastChar = transliterated.last()
-            if (lastChar !in listOf('া', 'ি', 'ী', 'ু', 'ূ', 'ে', 'ৈ', 'ো', 'ৌ', '্')) {
-                candidates.add(transliterated + "া")
-                candidates.add(transliterated + "ের")
-            }
-        }
-
-        for (cand in candidates.distinct()) {
+        for (cand in distinctList) {
             val chip = Button(this).apply {
                 text = cand
                 textSize = 13f
@@ -483,10 +631,13 @@ class SmartKeyboardService : InputMethodService() {
                 }
                 setOnClickListener {
                     triggerHapticAndSound()
-                    val ic = currentInputConnection ?: return@setOnClickListener
-                    // Cleanly commit candidate text replacing composing buffer
-                    ic.commitText("$cand ", 1)
-                    phoneticBuffer.clear()
+                    val conn = currentInputConnection ?: return@setOnClickListener
+                    if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+                        conn.commitText("$cand ", 1)
+                        phoneticBuffer.clear()
+                    } else {
+                        conn.commitText("$cand ", 1)
+                    }
                     updateSuggestions()
                 }
             }
@@ -913,14 +1064,17 @@ class SmartKeyboardService : InputMethodService() {
     }
 
     /**
-     * Key Press Handler with Composing Text Architecture
+     * Key Press Handler with Composing Text Architecture & Gboard Live Translate
      */
     private fun handleKeyPress(key: String) {
         val ic = currentInputConnection ?: return
 
         when (key) {
             "⌫" -> {
-                if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+                if (isLiveTranslateActive && liveTranslateBuffer.isNotEmpty()) {
+                    liveTranslateBuffer.deleteCharAt(liveTranslateBuffer.length - 1)
+                    tvLiveTranslatePreview.text = if (liveTranslateBuffer.isEmpty()) "বাংলা লিখুন (Space দিলে ইংরেজিতে যাবে)..." else liveTranslateBuffer.toString()
+                } else if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     phoneticBuffer.deleteCharAt(phoneticBuffer.length - 1)
                     if (phoneticBuffer.isEmpty()) {
                         ic.finishComposingText()
@@ -931,35 +1085,100 @@ class SmartKeyboardService : InputMethodService() {
                     updateSuggestions()
                 } else {
                     ic.deleteSurroundingText(1, 0)
+                    updateSuggestions()
                 }
             }
             "↵" -> {
-                flushPhoneticBuffer()
-                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
-                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
+                if (isLiveTranslateActive && liveTranslateBuffer.isNotEmpty()) {
+                    val toTranslate = liveTranslateBuffer.toString()
+                    liveTranslateBuffer.clear()
+                    tvLiveTranslatePreview.text = "⏳ অনুবাদ হচ্ছে: $toTranslate..."
+                    serviceScope.launch {
+                        val res = geminiService.translateText(toTranslate, liveTranslateSourceLang, liveTranslateTargetLang)
+                        res.onSuccess { translated ->
+                            mainHandler.post {
+                                ic.commitText(translated, 1)
+                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
+                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
+                                tvLiveTranslatePreview.text = "✓ সম্পন্ন: $translated"
+                                updateSuggestions()
+                            }
+                        }.onFailure {
+                            mainHandler.post {
+                                ic.commitText(toTranslate, 1)
+                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
+                                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
+                                updateSuggestions()
+                            }
+                        }
+                    }
+                } else {
+                    flushPhoneticBuffer()
+                    ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
+                    ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
+                    updateSuggestions()
+                }
             }
             "⇧" -> {
                 isShifted = !isShifted
                 buildKeyboards()
             }
             "Space" -> {
-                if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+                if (isLiveTranslateActive && (liveTranslateBuffer.isNotEmpty() || phoneticBuffer.isNotEmpty())) {
+                    val inputPart = if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+                        val translit = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
+                        phoneticBuffer.clear()
+                        translit
+                    } else {
+                        val buf = liveTranslateBuffer.toString()
+                        liveTranslateBuffer.clear()
+                        buf
+                    }
+
+                    tvLiveTranslatePreview.text = "⏳ অনুবাদ হচ্ছে: $inputPart..."
+                    serviceScope.launch {
+                        val res = geminiService.translateText(inputPart, liveTranslateSourceLang, liveTranslateTargetLang)
+                        res.onSuccess { translated ->
+                            mainHandler.post {
+                                ic.commitText("$translated ", 1)
+                                tvLiveTranslatePreview.text = "✓ $translated"
+                                updateSuggestions()
+                            }
+                        }.onFailure {
+                            mainHandler.post {
+                                ic.commitText("$inputPart ", 1)
+                                updateSuggestions()
+                            }
+                        }
+                    }
+                } else if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     val transliterated = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
                     ic.commitText("$transliterated ", 1)
                     phoneticBuffer.clear()
                     updateSuggestions()
                 } else {
                     ic.commitText(" ", 1)
+                    updateSuggestions()
                 }
             }
             else -> {
                 val charToCommit = if (isShifted) key.uppercase() else key
-                if (currentMode == TypingMode.BANGLISH) {
+                if (isLiveTranslateActive) {
+                    if (currentMode == TypingMode.BANGLISH) {
+                        phoneticBuffer.append(charToCommit)
+                        val bengali = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
+                        tvLiveTranslatePreview.text = bengali
+                    } else {
+                        liveTranslateBuffer.append(charToCommit)
+                        tvLiveTranslatePreview.text = liveTranslateBuffer.toString()
+                    }
+                } else if (currentMode == TypingMode.BANGLISH) {
                     phoneticBuffer.append(charToCommit)
                     ic.setComposingText(phoneticBuffer.toString(), 1)
                     updateSuggestions()
                 } else {
                     ic.commitText(charToCommit, 1)
+                    updateSuggestions()
                 }
             }
         }

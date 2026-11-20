@@ -45,12 +45,12 @@ jobs:
       - name: Prepare Artifact
         run: |
           mkdir -p build-output
-          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/app-v1.3.0-build4-android.apk \;
+          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/app-v1.4.0-build5-android.apk \;
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-v1.3.0-build4-android.apk
-          path: build-output/app-v1.3.0-build4-android.apk
+          name: app-v1.4.0-build5-android.apk
+          path: build-output/app-v1.4.0-build5-android.apk
           if-no-files-found: error
           retention-days: 30

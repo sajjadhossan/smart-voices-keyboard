@@ -64,9 +64,17 @@ class SettingsActivity : AppCompatActivity() {
             )
         }
 
-        // Setup Themes Spinner
-        val themeKeys = listOf("dark", "amoled", "light", "cyber")
-        val themeNames = listOf("Dark Slate (ডিফল্ট ডার্ক)", "AMOLED Black (পিউর ব্ল্যাক)", "Modern Light (উজ্জ্বল লাইট)", "Cyber Neon (সাইবার নিয়ন)")
+        // Setup Themes Spinner (7 Modern Themes)
+        val themeKeys = listOf("dark", "amoled", "light", "cyber", "ocean", "forest", "sunset")
+        val themeNames = listOf(
+            "Dark Slate (ডিফল্ট ডার্ক)",
+            "AMOLED Black (পিউর ব্ল্যাক)",
+            "Modern Light (উজ্জ্বল লাইট)",
+            "Cyber Neon (সাইবার ভায়োলেট)",
+            "Ocean Blue (ডিপ ওশান ব্লু)",
+            "Forest Emerald (এমেরাল্ড গ্রিন)",
+            "Sunset Flame (সানসেট অ্যাম্বার)"
+        )
         val themeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, themeNames)
         spinnerThemes.adapter = themeAdapter
 
