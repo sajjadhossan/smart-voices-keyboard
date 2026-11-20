@@ -336,20 +336,74 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // -------------------------------------------------------------
-  // TAB 3: Phonetic (Banglish to Bangla)
+  // TAB 3: Phonetic (Banglish to Bangla) with Smart Prediction
   // -------------------------------------------------------------
   const phoneticInput = document.getElementById('phoneticInput');
   const phoneticOutput = document.getElementById('phoneticOutput');
+  const desktopPredictionChips = document.getElementById('desktopPredictionChips');
+
+  const banglaPredictions = {
+    'আমি': ['ভালো', 'আছি', 'তোমাকে', 'এখন', 'যাবো', 'বলছি'],
+    'তুমি': ['কেমন', 'কোথায়', 'কি', 'আছো', 'যাবে', 'করছো'],
+    'কেমন': ['আছো', 'আছেন', 'হলো', 'চলছে'],
+    'ধন্যবাদ': ['ভাই', 'আপনাকে', 'অনেক', 'প্রিয়'],
+    'শুভ': ['সকাল', 'রাত্রি', 'কামনা', 'দিন'],
+    'আসসালামু': ['আলাইকুম'],
+    'ইনশা': ['আল্লাহ'],
+    'আলহামদুলিল্লাহ': ['ভালো', 'আছি']
+  };
+
+  function updateDesktopPredictionChips(currentText) {
+    if (!desktopPredictionChips) return;
+    const tokens = currentText.trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) {
+      desktopPredictionChips.innerHTML = '';
+      return;
+    }
+    const lastWord = tokens[tokens.length - 1];
+    const suggestions = banglaPredictions[lastWord] || [];
+
+    if (!suggestions.length) {
+      desktopPredictionChips.innerHTML = '';
+      return;
+    }
+
+    desktopPredictionChips.innerHTML = suggestions.map(s => `
+      <button class="pred-chip px-2.5 py-0.5 rounded-full bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white text-xs border border-slate-700/60 transition cursor-pointer">
+        ${s}
+      </button>
+    `).join('');
+
+    desktopPredictionChips.querySelectorAll('.pred-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const word = chip.textContent.trim();
+        phoneticOutput.textContent = (phoneticOutput.textContent.trim() + ' ' + word).trim();
+        updateDesktopPredictionChips(word);
+      });
+    });
+  }
 
   phoneticInput?.addEventListener('input', async () => {
     const text = phoneticInput.value;
     if (!text) {
       phoneticOutput.textContent = '';
+      if (desktopPredictionChips) desktopPredictionChips.innerHTML = '';
       return;
     }
     if (window.api) {
       const converted = await window.api.transliterateText(text);
       phoneticOutput.textContent = converted;
+      updateDesktopPredictionChips(converted);
+    }
+  });
+
+  phoneticInput?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = phoneticOutput.textContent.trim();
+      if (text && window.api) {
+        await window.api.injectTextToActiveWindow(text);
+      }
     }
   });
 

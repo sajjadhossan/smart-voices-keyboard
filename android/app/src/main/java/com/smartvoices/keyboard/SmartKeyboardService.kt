@@ -720,6 +720,7 @@ class SmartKeyboardService : InputMethodService() {
                 setOnClickListener {
                     triggerHapticAndSound()
                     val conn = currentInputConnection ?: return@setOnClickListener
+                    PredictionEngine.learnWord(cand)
                     if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                         conn.commitText("$cand ", 1)
                         phoneticBuffer.clear()

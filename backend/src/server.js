@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.4.1',
+    latestVersion: '1.5.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.4.1-build6-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.4.1-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.4.1-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.5.0-build7-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৪.১ (Phase 1): পূর্ণাঙ্গ জিবোর্ড-স্টাইল লাইভ ইনলাইন অনুবাদ বার — টাইপ করার সাথে সাথে লাইভ প্রিভিউ, ডেবউন্সড এআই ট্রান্সলেশন, কুইক পাঠান বাটন এবং ডেস্কটপ লাইভ অটো-ইনজেক্ট।',
-      en: 'New version 1.4.1 (Phase 1): Full Gboard-style live inline translation bar with real-time preview, debounced AI translation, quick commit button, and desktop live auto-inject.'
+      bn: 'নতুন সংস্করণ ১.৫.০ (Phase 2): উন্নত স্মার্ট প্রেডিকশন ইঞ্জিন — বাংলা ও ইংরেজি অটো-কারেক্ট, এন-গ্রাম নেক্সট-ওয়ার্ড চেইনিং, ইউজার ডিকশনারি লার্নিং, ইমোজি সাজেশন এবং ডেস্কটপ লাইভ প্রেডিকশন চিপস।',
+      en: 'New version 1.5.0 (Phase 2): Advanced Intelligent Prediction Engine with Bengali/English autocorrect, N-gram next-word chaining, user dictionary learning, emoji associations, and desktop prediction chips.'
     },
     forceUpdate: false
   }
