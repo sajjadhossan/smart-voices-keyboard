@@ -173,8 +173,23 @@ class SmartKeyboardService : InputMethodService() {
     private lateinit var keysLayout: LinearLayout
     private lateinit var clipboardPanel: LinearLayout
     private lateinit var btnMic: Button
+    private lateinit var btnVoiceLang: Button
     private lateinit var btnMode: Button
     private lateinit var btnTranslate: Button
+    private var explicitVoiceLang: String? = null
+
+    private fun getEffectiveVoiceLang(): String {
+        return explicitVoiceLang ?: if (currentMode == TypingMode.ENGLISH) "en" else "bn"
+    }
+
+    private fun toggleVoiceLanguage() {
+        explicitVoiceLang = if (getEffectiveVoiceLang() == "bn") "en" else "bn"
+        if (::btnVoiceLang.isInitialized) {
+            btnVoiceLang.text = if (getEffectiveVoiceLang() == "en") "🇺🇸 EN" else "🇧🇩 BN"
+        }
+        val name = if (getEffectiveVoiceLang() == "en") "English (en-US)" else "বাংলা (bn-BD)"
+        Toast.makeText(this, "ভয়েস ভাষা: $name 🎙️", Toast.LENGTH_SHORT).show()
+    }
 
     // Phonetic word buffer for Banglish mode
     private val phoneticBuffer = StringBuilder()
@@ -214,7 +229,12 @@ class SmartKeyboardService : InputMethodService() {
                 VoiceInputDialogActivity.ACTION_VOICE_RESULT -> {
                     val voiceText = intent.getStringExtra(VoiceInputDialogActivity.EXTRA_VOICE_TEXT)
                     if (!voiceText.isNullOrBlank()) {
-                        currentInputConnection?.commitText("$voiceText ", 1)
+                        val voiceResult = com.smartvoices.keyboard.voice.VoiceCommandProcessor.processVoiceText(voiceText, getEffectiveVoiceLang())
+                        if (voiceResult.isCommand) {
+                            handleVoiceCommandResult(voiceResult)
+                        } else {
+                            currentInputConnection?.commitText("${voiceResult.finalText} ", 1)
+                        }
                         stopVoiceListening()
                     }
                 }
@@ -414,6 +434,28 @@ class SmartKeyboardService : InputMethodService() {
         toolsContainer.addView(btnSettings)
 
         toolbarLayout.addView(toolsContainer)
+
+        // Dedicated Voice Language Switcher Pill (BN <-> EN)
+        btnVoiceLang = Button(this).apply {
+            text = if (getEffectiveVoiceLang() == "en") "🇺🇸 EN" else "🇧🇩 BN"
+            textSize = 10f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(theme.textColor)
+            background = createRoundedDrawable(theme.keyBg, dpToPx(14))
+            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(2))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dpToPx(28)
+            ).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setMargins(dpToPx(2), 0, dpToPx(4), 0)
+            }
+            setOnClickListener {
+                triggerHapticAndSound()
+                toggleVoiceLanguage()
+            }
+        }
+        toolbarLayout.addView(btnVoiceLang)
 
         // Right side: Dedicated Gboard-style Voice Dictation Mic Button with "শুনতেছি..." status
         btnMic = Button(this).apply {
@@ -1379,13 +1421,13 @@ class SmartKeyboardService : InputMethodService() {
         isGeminiVoiceActive = true
         isListening = true
         updateMicButtonState(true, "🔴 শুনতেছি...")
-        Toast.makeText(this, "🎙️ শুনতেছি... কথা বলুন (শেষ হলে মাইকে ট্যাপ করুন)", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "🎙️ শুনতেছি... কথা বলুন (থেমে গেলে অটোমেটিক লিখা হবে)", Toast.LENGTH_SHORT).show()
 
-        geminiAudioRecorder.audioLevelListener = object : GeminiAudioRecorder.AudioLevelListener {
+        geminiAudioRecorder.audioEventListener = object : com.smartvoices.keyboard.voice.GeminiAudioRecorder.AudioEventListener {
             private var lastUpdate = 0L
             override fun onAudioLevel(rmsDb: Float) {
                 val now = System.currentTimeMillis()
-                if (now - lastUpdate > 200) {
+                if (now - lastUpdate > 180) {
                     lastUpdate = now
                     val bars = when {
                         rmsDb > 65 -> " ▃▅█"
@@ -1400,13 +1442,89 @@ class SmartKeyboardService : InputMethodService() {
                     }
                 }
             }
+
+            override fun onSpeechDetected() {
+                mainHandler.post {
+                    if (isGeminiVoiceActive) {
+                        btnMic.text = "🔴 কথা শুনছি..."
+                    }
+                }
+            }
+
+            override fun onSilenceTimeout() {
+                mainHandler.post {
+                    if (isGeminiVoiceActive) {
+                        stopVoiceListening()
+                    }
+                }
+            }
+
+            override fun onMaxDurationReached() {
+                mainHandler.post {
+                    if (isGeminiVoiceActive) {
+                        stopVoiceListening()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleVoiceCommandResult(result: com.smartvoices.keyboard.voice.VoiceCommandProcessor.VoiceResult) {
+        val ic = currentInputConnection ?: return
+        when (result.commandType) {
+            "CLEAR" -> {
+                ic.deleteSurroundingText(100, 0)
+                Toast.makeText(this, "টেক্সট মুছে ফেলা হয়েছে 🗑️", Toast.LENGTH_SHORT).show()
+            }
+            "NEWLINE" -> {
+                ic.commitText("\n", 1)
+            }
+            "TRANSLATE_TO_BN" -> {
+                val payload = result.payload
+                if (payload.isBlank()) return
+                serviceScope.launch {
+                    val res = geminiService.translateText(payload, "en", "bn")
+                    res.onSuccess { translated ->
+                        mainHandler.post {
+                            ic.commitText("$translated ", 1)
+                            Toast.makeText(this@SmartKeyboardService, "✅ বাংলায় অনুবাদ সম্পন্ন", Toast.LENGTH_SHORT).show()
+                        }
+                    }.onFailure { err ->
+                        mainHandler.post {
+                            ic.commitText("$payload ", 1)
+                            Toast.makeText(this@SmartKeyboardService, "অনুবাদ ব্যর্থ: ${err.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            "TRANSLATE_TO_EN" -> {
+                val payload = result.payload
+                if (payload.isBlank()) return
+                serviceScope.launch {
+                    val res = geminiService.translateText(payload, "bn", "en")
+                    res.onSuccess { translated ->
+                        mainHandler.post {
+                            ic.commitText("$translated ", 1)
+                            Toast.makeText(this@SmartKeyboardService, "✅ Translated to English", Toast.LENGTH_SHORT).show()
+                        }
+                    }.onFailure { err ->
+                        mainHandler.post {
+                            ic.commitText("$payload ", 1)
+                            Toast.makeText(this@SmartKeyboardService, "Translation failed: ${err.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            else -> {
+                ic.commitText("${result.finalText} ", 1)
+            }
         }
     }
 
     private fun launchVoiceInputDialog() {
         val intent = Intent(this, VoiceInputDialogActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra(VoiceInputDialogActivity.EXTRA_LANG_MODE, if (currentMode == TypingMode.ENGLISH) "en" else "bn")
+            putExtra(VoiceInputDialogActivity.EXTRA_LANG_MODE, getEffectiveVoiceLang())
         }
         startActivity(intent)
     }
@@ -1468,7 +1586,12 @@ class SmartKeyboardService : InputMethodService() {
                                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                                 if (!matches.isNullOrEmpty()) {
                                     val recognized = matches[0]
-                                    currentInputConnection?.commitText("$recognized ", 1)
+                                    val voiceResult = com.smartvoices.keyboard.voice.VoiceCommandProcessor.processVoiceText(recognized, getEffectiveVoiceLang())
+                                    if (voiceResult.isCommand) {
+                                        handleVoiceCommandResult(voiceResult)
+                                    } else {
+                                        currentInputConnection?.commitText("${voiceResult.finalText} ", 1)
+                                    }
                                 }
                                 stopVoiceListening()
                             }
@@ -1487,7 +1610,7 @@ class SmartKeyboardService : InputMethodService() {
 
                 val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    val langCode = if (currentMode == TypingMode.ENGLISH) "en-US" else "bn-BD"
+                    val langCode = if (getEffectiveVoiceLang() == "en") "en-US" else "bn-BD"
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
                     putExtra(RecognizerIntent.EXTRA_PROMPT, "শুনতেছি... কথা বলুন")
@@ -1539,20 +1662,26 @@ class SmartKeyboardService : InputMethodService() {
             isGeminiVoiceActive = false
             isListening = false
             updateMicButtonState(true, "⏳ রূপান্তর হচ্ছে...")
+            geminiAudioRecorder.audioEventListener = null
             geminiAudioRecorder.audioLevelListener = null
 
             serviceScope.launch {
                 val wavBytes = geminiAudioRecorder.stopRecording()
                 val apiKey = prefs.getString("gemini_api_key", "") ?: ""
-                val langMode = if (currentMode == TypingMode.ENGLISH) "en" else "bn"
+                val langMode = getEffectiveVoiceLang()
 
                 val result = geminiAudioRecorder.transcribeWithGemini(wavBytes, apiKey, langMode)
                 result.onSuccess { transcribed ->
                     mainHandler.post {
                         updateMicButtonState(false, "🎙️")
                         if (transcribed.isNotBlank()) {
-                            currentInputConnection?.commitText("$transcribed ", 1)
-                            Toast.makeText(this@SmartKeyboardService, "✅ লিখা সম্পন্ন", Toast.LENGTH_SHORT).show()
+                            val voiceResult = com.smartvoices.keyboard.voice.VoiceCommandProcessor.processVoiceText(transcribed, langMode)
+                            if (voiceResult.isCommand) {
+                                handleVoiceCommandResult(voiceResult)
+                            } else {
+                                currentInputConnection?.commitText("${voiceResult.finalText} ", 1)
+                                Toast.makeText(this@SmartKeyboardService, "✅ লিখা সম্পন্ন", Toast.LENGTH_SHORT).show()
+                            }
                         } else {
                             Toast.makeText(this@SmartKeyboardService, "কোনো শব্দ শনাক্ত হয়নি", Toast.LENGTH_SHORT).show()
                         }

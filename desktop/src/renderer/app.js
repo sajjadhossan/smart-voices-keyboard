@@ -115,6 +115,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function applyVoiceAutoPunctuation(rawText, lang) {
+    if (!rawText || !rawText.trim()) return '';
+    let text = rawText.trim();
+
+    // Spoken punctuation replacement (Unicode & word-boundary aware)
+    text = text
+      .replace(/(?:^|\s+)(দাড়ি|দাড়ি|পূর্ণচ্ছেদ)(?:\s+|$)/gi, '। ')
+      .replace(/(?:^|\s+)কমা(?:\s+|$)/gi, ', ')
+      .replace(/(?:^|\s+)(প্রশ্নবোধক|জিজ্ঞাসা চিহ্ন|প্রশ্ন চিহ্ন)(?:\s+|$)/gi, '? ')
+      .replace(/(?:^|\s+)(বিস্ময়সূচক|আশ্চর্যবোধক)(?:\s+|$)/gi, '! ')
+      .replace(/\b(period|full stop)\b/gi, '.')
+      .replace(/\bcomma\b/gi, ',')
+      .replace(/\bquestion mark\b/gi, '?')
+      .replace(/\bexclamation mark\b/gi, '!')
+      .replace(/(?:^|\s+)(নতুন লাইন|পরের লাইন|new line)(?:\s+|$)/gi, '\n')
+      .trim();
+
+    // Contextual sentence ending punctuation
+    const lastChar = text.slice(-1);
+    const hasPunctuation = ['.', '।', '?', '!', '\n'].includes(lastChar);
+    if (!hasPunctuation) {
+      if (lang && lang.startsWith('en')) {
+        const questionWords = ['what', 'where', 'when', 'why', 'who', 'how', 'can', 'could', 'would', 'is', 'are', 'do', 'does'];
+        const firstWord = text.split(/\s+/)[0]?.toLowerCase();
+        text = questionWords.includes(firstWord) ? `${text}?` : `${text}.`;
+        text = text.charAt(0).toUpperCase() + text.slice(1);
+      } else {
+        const bnQuestions = ['কী', 'কি', 'কেন', 'কোথায়', 'কোথায়', 'কেমন', 'কখন', 'কার', 'হবে কি', 'আছো কি'];
+        const isQuestion = bnQuestions.some(q => text.includes(q));
+        text = isQuestion ? `${text}?` : `${text}।`;
+      }
+    }
+
+    // Format typography: attach punctuation to preceding word without leading space
+    text = text
+      .replace(/\s+([,।!?.])/g, '$1')
+      .replace(/([,।])([^\s\n])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return text;
+  }
+
   function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -151,7 +194,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (final) {
-        voiceResultArea.value += (voiceResultArea.value ? ' ' : '') + final.trim();
+        const processed = applyVoiceAutoPunctuation(final, voiceLanguageSelect?.value || 'bn-BD');
+        voiceResultArea.value += (voiceResultArea.value ? ' ' : '') + processed;
       } else if (interim) {
         // Show interim preview
         voicePromptText.textContent = interim;

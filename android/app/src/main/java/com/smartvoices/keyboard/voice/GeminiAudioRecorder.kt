@@ -36,7 +36,15 @@ class GeminiAudioRecorder(private val context: Context) {
         fun onAudioLevel(rmsDb: Float)
     }
 
+    interface AudioEventListener {
+        fun onAudioLevel(rmsDb: Float)
+        fun onSpeechDetected()
+        fun onSilenceTimeout()
+        fun onMaxDurationReached()
+    }
+
     var audioLevelListener: AudioLevelListener? = null
+    var audioEventListener: AudioEventListener? = null
 
     fun isRecording(): Boolean = isRecording
 
@@ -75,9 +83,16 @@ class GeminiAudioRecorder(private val context: Context) {
             audioRecord?.startRecording()
             isRecording = true
 
-            // Read buffer in background thread
+            // Read buffer in background thread with intelligent Voice Activity Detection (VAD)
             Thread {
                 val buffer = ByteArray(bufferSize)
+                var speechDetected = false
+                var lastSpeechTimestamp = 0L
+                val recordStartTime = System.currentTimeMillis()
+                val silenceThresholdMs = 2200L // 2.2 seconds of silence
+                val maxDurationMs = 30000L      // 30 seconds max
+                val speechDbThreshold = 42.0f   // dB threshold for speech presence
+
                 while (isRecording && audioRecord != null) {
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                     if (read > 0) {
@@ -85,7 +100,7 @@ class GeminiAudioRecorder(private val context: Context) {
                             audioDataStream.write(buffer, 0, read)
                         }
 
-                        // Calculate RMS level for live visualizer
+                        // Calculate RMS level for live visualizer & VAD
                         var sum = 0.0
                         for (i in 0 until read step 2) {
                             if (i + 1 < read) {
@@ -95,7 +110,30 @@ class GeminiAudioRecorder(private val context: Context) {
                         }
                         val rms = Math.sqrt(sum / (read / 2.0))
                         val db = (20 * Math.log10(rms.coerceAtLeast(1.0))).toFloat()
+
                         audioLevelListener?.onAudioLevel(db)
+                        audioEventListener?.onAudioLevel(db)
+
+                        val now = System.currentTimeMillis()
+                        if (db >= speechDbThreshold) {
+                            if (!speechDetected) {
+                                speechDetected = true
+                                audioEventListener?.onSpeechDetected()
+                            }
+                            lastSpeechTimestamp = now
+                        }
+
+                        // Check silence auto-stop after speech has occurred
+                        if (speechDetected && (now - lastSpeechTimestamp > silenceThresholdMs) && (now - recordStartTime > 1200L)) {
+                            audioEventListener?.onSilenceTimeout()
+                            break
+                        }
+
+                        // Check max duration limit
+                        if (now - recordStartTime > maxDurationMs) {
+                            audioEventListener?.onMaxDurationReached()
+                            break
+                        }
                     }
                 }
             }.start()

@@ -44,6 +44,12 @@ A modern, commercial-grade, cross-platform voice keyboard application for **Andr
    - 7 handcrafted color themes: **Dark Slate** (default), **AMOLED Black** (pure black for battery savings), **Modern Light**, **Cyber Neon** (cyberpunk violet), **Ocean Blue**, **Forest Emerald**, and **Sunset Flame**.
    - Instant real-time live preview upon selection with zero reload needed.
 
+9. **🎙️ Gemini Multimodal Acoustic Voice Dictation & Auto-Punctuation (Phase 4)**:
+   - Built-in Voice Activity Detection (VAD) with automatic silence detection (2.2s silence auto-stop).
+   - Natural spoken punctuation conversion (দাড়ি, কমা, জিজ্ঞাসা, new line) and contextual automatic punctuation for complete sentences.
+   - Natural voice commands: "মুছে দাও", "নতুন লাইন", "বাংলা করো: ...", "ইংরেজি করো: ...".
+   - Direct toolbar voice language toggle (🇧🇩 BN ⇄ 🇺🇸 EN) for instant multilingual voice typing.
+
 ---
 
 ## 🏗️ Project Architecture

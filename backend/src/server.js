@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.5.1',
+    latestVersion: '1.6.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.5.1-build8-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.1-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.1-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.6.0-build9-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.6.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.6.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৫.১ (ফেজ ৩): ডাইনামিক ৭টি প্রিমিয়াম কালার থিম সুইচার (Dark Slate, AMOLED, Light, Cyber Neon, Ocean Blue, Forest Emerald, Sunset Flame) মোবাইল ও ডেস্কটপে লাইভ রিয়েলটাইম প্রিভিউ সহ সংযুক্ত।',
-      en: 'New version 1.5.1 (Phase 3): Dynamic 7-Theme Switcher (Dark Slate, AMOLED Black, Modern Light, Cyber Neon, Ocean Blue, Forest Emerald, Sunset Flame) with instant real-time live preview across mobile, desktop, and web.'
+      bn: 'নতুন সংস্করণ ১.৬.০ (ফেজ ৪): জেমিনি এআই ভয়েস ডিকটেশন ও অডিও অ্যাকোস্টিক প্রসেসিং — VAD সাইলেন্স অটো-স্টপ, স্পোকেন ও অটো-পাংকচুয়েশন (দাড়ি, কমা, জিজ্ঞাসা), ভয়েস কমান্ডস এবং টুলবারে তাৎক্ষণিক বাংলা/ইংরেজি ভয়েস ল্যাঙ্গুয়েজ সুইচার।',
+      en: 'New version 1.6.0 (Phase 4): Gemini AI voice dictation and acoustic processing with VAD silence auto-stop, spoken & auto-punctuation, voice commands, and toolbar Bengali/English voice toggle.'
     },
     forceUpdate: false
   }
