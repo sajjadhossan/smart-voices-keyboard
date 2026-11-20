@@ -24,6 +24,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -33,6 +34,7 @@ import com.smartvoices.keyboard.clipboard.ClipboardDbHelper
 import com.smartvoices.keyboard.gemini.GeminiService
 import com.smartvoices.keyboard.phonetic.PhoneticEngine
 import com.smartvoices.keyboard.ui.SettingsActivity
+import com.smartvoices.keyboard.ui.VoiceInputDialogActivity
 import com.smartvoices.keyboard.ui.VoicePermissionActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -127,6 +129,7 @@ class SmartKeyboardService : InputMethodService() {
     private lateinit var clipboardPanel: LinearLayout
     private lateinit var btnMic: Button
     private lateinit var btnMode: Button
+    private lateinit var btnTranslate: Button
 
     // Phonetic word buffer for Banglish mode
     private val phoneticBuffer = StringBuilder()
@@ -148,7 +151,6 @@ class SmartKeyboardService : InputMethodService() {
                 SettingsActivity.ACTION_SETTINGS_UPDATED -> {
                     val newApiKey = intent.getStringExtra("gemini_api_key") ?: ""
                     geminiService = GeminiService(newApiKey)
-                    val newThemeKey = intent.getStringExtra("theme") ?: "dark"
                     if (::rootLayout.isInitialized) {
                         rebuildEntireUI()
                     }
@@ -157,6 +159,13 @@ class SmartKeyboardService : InputMethodService() {
                     val granted = intent.getBooleanExtra("granted", false)
                     if (granted) {
                         startVoiceListening()
+                    }
+                }
+                VoiceInputDialogActivity.ACTION_VOICE_RESULT -> {
+                    val voiceText = intent.getStringExtra(VoiceInputDialogActivity.EXTRA_VOICE_TEXT)
+                    if (!voiceText.isNullOrBlank()) {
+                        currentInputConnection?.commitText("$voiceText ", 1)
+                        stopVoiceListening()
                     }
                 }
             }
@@ -192,6 +201,7 @@ class SmartKeyboardService : InputMethodService() {
         val filter = IntentFilter().apply {
             addAction(SettingsActivity.ACTION_SETTINGS_UPDATED)
             addAction(VoicePermissionActivity.ACTION_PERMISSION_RESULT)
+            addAction(VoiceInputDialogActivity.ACTION_VOICE_RESULT)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(keyboardReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -279,7 +289,7 @@ class SmartKeyboardService : InputMethodService() {
         toolbarLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(theme.toolbarBg)
-            setPadding(12, 4, 12, 4)
+            setPadding(10, 4, 10, 4)
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -294,8 +304,16 @@ class SmartKeyboardService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f)
         }
 
-        // 1. Quick Translate Button (Gboard style)
-        val btnTranslate = createGboardIconButton("🌐 অনুবাদ", theme.toolbarBg, theme.textColor) {
+        // 1. Quick Translate Button with Live Green Signal Badge (Gboard style)
+        val isVerified = prefs.getBoolean("gemini_api_verified", false)
+        val hasKey = (prefs.getString("gemini_api_key", "") ?: "").isNotBlank()
+        val translateLabel = when {
+            hasKey && isVerified -> "🌐 অনুবাদ 🟢"
+            hasKey -> "🌐 অনুবাদ 🟡"
+            else -> "🌐 অনুবাদ"
+        }
+
+        btnTranslate = createGboardIconButton(translateLabel, theme.toolbarBg, theme.textColor) {
             performQuickTranslate()
         }
         toolsContainer.addView(btnTranslate)
@@ -338,18 +356,28 @@ class SmartKeyboardService : InputMethodService() {
 
         toolbarLayout.addView(toolsContainer)
 
-        // Right side: Dedicated Gboard-style Voice Dictation Mic Button
+        // Right side: Dedicated Gboard-style Voice Dictation Mic Button with "শুনতেছি..." status
         btnMic = Button(this).apply {
-            text = "🎙️"
-            textSize = 16f
+            text = if (isListening) "🔴 শুনতেছি..." else "🎙️"
+            textSize = if (isListening) 12f else 16f
             setTextColor(Color.WHITE)
-            background = createRoundedDrawable(theme.actionKeyBg, dpToPx(18))
-            layoutParams = LinearLayout.LayoutParams(dpToPx(38), dpToPx(38)).apply {
+            background = createRoundedDrawable(if (isListening) Color.parseColor("#EF4444") else theme.actionKeyBg, dpToPx(18))
+            val btnWidth = if (isListening) ViewGroup.LayoutParams.WRAP_CONTENT else dpToPx(38)
+            layoutParams = LinearLayout.LayoutParams(btnWidth, dpToPx(38)).apply {
                 gravity = Gravity.CENTER_VERTICAL
+                if (isListening) {
+                    setMargins(dpToPx(4), 0, dpToPx(4), 0)
+                }
             }
+            setPadding(dpToPx(10), 0, dpToPx(10), 0)
             setOnClickListener {
                 triggerHapticAndSound()
                 toggleVoiceInput()
+            }
+            setOnLongClickListener {
+                triggerHapticAndSound()
+                launchVoiceInputDialog()
+                true
             }
         }
         toolbarLayout.addView(btnMic)
@@ -403,6 +431,9 @@ class SmartKeyboardService : InputMethodService() {
         rootLayout.addView(suggestionBar)
     }
 
+    /**
+     * Smart Suggestion Bar with setComposingText integration (Zero Duplication Bug)
+     */
     private fun updateSuggestions() {
         if (currentMode != TypingMode.BANGLISH || phoneticBuffer.isEmpty()) {
             suggestionBar.visibility = View.GONE
@@ -417,9 +448,23 @@ class SmartKeyboardService : InputMethodService() {
         val rawInput = phoneticBuffer.toString()
         val transliterated = PhoneticEngine.transliterateWord(rawInput)
 
-        val suggestions = listOf(transliterated, rawInput)
+        // Suggestion list: 1st Bengali transliteration | 2nd Raw English typed | 3rd Phonetic alternatives
+        val candidates = mutableListOf<String>()
+        candidates.add(transliterated)
+        if (rawInput != transliterated) {
+            candidates.add(rawInput)
+        }
 
-        for (cand in suggestions) {
+        // Add common next-letter / suffix suggestions based on transliteration
+        if (transliterated.isNotEmpty()) {
+            val lastChar = transliterated.last()
+            if (lastChar !in listOf('া', 'ি', 'ী', 'ু', 'ূ', 'ে', 'ৈ', 'ো', 'ৌ', '্')) {
+                candidates.add(transliterated + "া")
+                candidates.add(transliterated + "ের")
+            }
+        }
+
+        for (cand in candidates.distinct()) {
             val chip = Button(this).apply {
                 text = cand
                 textSize = 13f
@@ -435,7 +480,7 @@ class SmartKeyboardService : InputMethodService() {
                 setOnClickListener {
                     triggerHapticAndSound()
                     val ic = currentInputConnection ?: return@setOnClickListener
-                    ic.deleteSurroundingText(phoneticBuffer.length, 0)
+                    // Cleanly commit candidate text replacing composing buffer
                     ic.commitText("$cand ", 1)
                     phoneticBuffer.clear()
                     updateSuggestions()
@@ -617,9 +662,6 @@ class SmartKeyboardService : InputMethodService() {
         }
     }
 
-    /**
-     * Creates a Gboard-style clip item card with tap-to-paste, pin toggle, and delete
-     */
     private fun createGboardClipCard(clip: ClipEntry, theme: KeyboardTheme): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -649,7 +691,6 @@ class SmartKeyboardService : InputMethodService() {
         card.setOnClickListener {
             triggerHapticAndSound()
             currentInputConnection?.commitText(clip.text, 1)
-            // Seamlessly return to keyboard keys after pasting
             showKeyboardKeysView()
         }
 
@@ -741,6 +782,9 @@ class SmartKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Key View with Continuous Auto-Repeat Backspace on Hold
+     */
     private fun createKeyView(key: String, theme: KeyboardTheme, weight: Float): View {
         val isSpecial = key in listOf("⌫", "↵", "⇧", "123", ",", ".")
         val isAction = key == "↵"
@@ -800,16 +844,47 @@ class SmartKeyboardService : InputMethodService() {
             keyLayout.addView(hintLabel)
         }
 
-        // Tap & Long-Press handling
-        keyLayout.setOnClickListener {
-            triggerHapticAndSound()
-            handleKeyPress(key)
-        }
+        // Auto-repeat backspace on hold
+        if (key == "⌫") {
+            val repeatInterval = 45L
+            val initialDelay = 350L
+            val repeatRunnable = object : Runnable {
+                override fun run() {
+                    triggerHapticAndSound()
+                    handleKeyPress("⌫")
+                    mainHandler.postDelayed(this, repeatInterval)
+                }
+            }
 
-        keyLayout.setOnLongClickListener {
-            triggerHapticAndSound()
-            handleKeyLongPress(key)
-            true
+            keyLayout.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        triggerHapticAndSound()
+                        handleKeyPress("⌫")
+                        mainHandler.postDelayed(repeatRunnable, initialDelay)
+                        v.isPressed = true
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        mainHandler.removeCallbacks(repeatRunnable)
+                        v.isPressed = false
+                        true
+                    }
+                    else -> false
+                }
+            }
+        } else {
+            // Normal Tap & Long-Press handling
+            keyLayout.setOnClickListener {
+                triggerHapticAndSound()
+                handleKeyPress(key)
+            }
+
+            keyLayout.setOnLongClickListener {
+                triggerHapticAndSound()
+                handleKeyLongPress(key)
+                true
+            }
         }
 
         return keyLayout
@@ -833,6 +908,9 @@ class SmartKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Key Press Handler with Composing Text Architecture
+     */
     private fun handleKeyPress(key: String) {
         val ic = currentInputConnection ?: return
 
@@ -840,9 +918,16 @@ class SmartKeyboardService : InputMethodService() {
             "⌫" -> {
                 if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     phoneticBuffer.deleteCharAt(phoneticBuffer.length - 1)
+                    if (phoneticBuffer.isEmpty()) {
+                        ic.finishComposingText()
+                        ic.deleteSurroundingText(1, 0)
+                    } else {
+                        ic.setComposingText(phoneticBuffer.toString(), 1)
+                    }
                     updateSuggestions()
+                } else {
+                    ic.deleteSurroundingText(1, 0)
                 }
-                ic.deleteSurroundingText(1, 0)
             }
             "↵" -> {
                 flushPhoneticBuffer()
@@ -856,7 +941,6 @@ class SmartKeyboardService : InputMethodService() {
             "Space" -> {
                 if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                     val transliterated = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
-                    ic.deleteSurroundingText(phoneticBuffer.length, 0)
                     ic.commitText("$transliterated ", 1)
                     phoneticBuffer.clear()
                     updateSuggestions()
@@ -868,7 +952,7 @@ class SmartKeyboardService : InputMethodService() {
                 val charToCommit = if (isShifted) key.uppercase() else key
                 if (currentMode == TypingMode.BANGLISH) {
                     phoneticBuffer.append(charToCommit)
-                    ic.commitText(charToCommit, 1)
+                    ic.setComposingText(phoneticBuffer.toString(), 1)
                     updateSuggestions()
                 } else {
                     ic.commitText(charToCommit, 1)
@@ -885,13 +969,11 @@ class SmartKeyboardService : InputMethodService() {
             val symbol = secondaryKeyMap[lower]!!
             if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
                 phoneticBuffer.append(symbol)
+                ic.setComposingText(phoneticBuffer.toString(), 1)
                 updateSuggestions()
+            } else {
+                ic.commitText(symbol, 1)
             }
-            ic.commitText(symbol, 1)
-        } else if (key == "⌫") {
-            ic.deleteSurroundingText(phoneticBuffer.length.coerceAtLeast(5), 0)
-            phoneticBuffer.clear()
-            updateSuggestions()
         }
     }
 
@@ -899,7 +981,6 @@ class SmartKeyboardService : InputMethodService() {
         if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
             val ic = currentInputConnection ?: return
             val transliterated = PhoneticEngine.transliterateWord(phoneticBuffer.toString())
-            ic.deleteSurroundingText(phoneticBuffer.length, 0)
             ic.commitText(transliterated, 1)
             phoneticBuffer.clear()
             updateSuggestions()
@@ -978,21 +1059,19 @@ class SmartKeyboardService : InputMethodService() {
     }
 
     /**
-     * Voice Dictation Handling with Runtime Permission Checking & SpeechRecognizer
+     * Voice Dictation Handling with "শুনতেছি..." Status & Dual-Engine Fallback
      */
     private fun toggleVoiceInput() {
         if (isListening) {
             stopVoiceListening()
         } else {
-            // 1. Verify Audio Record Runtime Permission
             val hasPermission = ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.RECORD_AUDIO
             ) == PackageManager.PERMISSION_GRANTED
 
             if (!hasPermission) {
-                // Launch transparent permission prompt activity immediately!
-                Toast.makeText(this, "ভয়েস টাইপিংয়ের জন্য মাইক্রোফোন পারমিশন প্রয়োজন", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "ভয়েস টাইপিংয়ের জন্য মাইক্রোফোন পারমিশন দিন", Toast.LENGTH_SHORT).show()
                 val permIntent = Intent(this, VoicePermissionActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
@@ -1004,17 +1083,29 @@ class SmartKeyboardService : InputMethodService() {
         }
     }
 
+    private fun launchVoiceInputDialog() {
+        val intent = Intent(this, VoiceInputDialogActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(VoiceInputDialogActivity.EXTRA_LANG_MODE, if (currentMode == TypingMode.ENGLISH) "en" else "bn")
+        }
+        startActivity(intent)
+    }
+
     private fun startVoiceListening() {
         mainHandler.post {
             try {
+                if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+                    launchVoiceInputDialog()
+                    return@post
+                }
+
                 if (speechRecognizer == null) {
                     speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
                         setRecognitionListener(object : RecognitionListener {
                             override fun onReadyForSpeech(params: Bundle?) {
                                 isListening = true
-                                btnMic.text = "🔴"
-                                btnMic.background = createRoundedDrawable(Color.parseColor("#EF4444"), dpToPx(18))
-                                Toast.makeText(this@SmartKeyboardService, "কথা বলুন...", Toast.LENGTH_SHORT).show()
+                                updateMicButtonState(true, "🔴 শুনতেছি... বলুন")
+                                Toast.makeText(this@SmartKeyboardService, "🎙️ শুনতেছি... কথা বলুন", Toast.LENGTH_SHORT).show()
                             }
 
                             override fun onBeginningOfSpeech() {}
@@ -1022,24 +1113,23 @@ class SmartKeyboardService : InputMethodService() {
                             override fun onBufferReceived(buffer: ByteArray?) {}
 
                             override fun onEndOfSpeech() {
-                                stopVoiceListening()
+                                updateMicButtonState(true, "⏳ প্রসেস হচ্ছে...")
                             }
 
                             override fun onError(error: Int) {
                                 stopVoiceListening()
-                                val errorMsg = when (error) {
-                                    SpeechRecognizer.ERROR_AUDIO -> "অডিও রেকর্ডিং ত্রুটি"
-                                    SpeechRecognizer.ERROR_CLIENT -> "ক্লায়েন্ট ত্রুটি"
-                                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "মাইক্রোফোন পারমিশন প্রয়োজন"
-                                    SpeechRecognizer.ERROR_NETWORK -> "ইন্টারনেট কানেকশন চেক করুন"
-                                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "কানেকশন টাইমআউট"
-                                    SpeechRecognizer.ERROR_NO_MATCH -> "কোনো কথা শনাক্ত হয়নি"
-                                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "স্পিচ ইঞ্জিন ব্যস্ত"
-                                    SpeechRecognizer.ERROR_SERVER -> "সার্ভার ত্রুটি"
-                                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "টাইমআউট"
-                                    else -> "ভয়েস কোড: $error"
+                                // If speech recognizer fails on OEM device, launch reliable voice input dialog immediately
+                                if (error == SpeechRecognizer.ERROR_CLIENT || error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS || error == SpeechRecognizer.ERROR_NO_MATCH) {
+                                    launchVoiceInputDialog()
+                                } else {
+                                    val errorMsg = when (error) {
+                                        SpeechRecognizer.ERROR_AUDIO -> "অডিও রেকর্ডিং সমস্যা"
+                                        SpeechRecognizer.ERROR_NETWORK -> "ইন্টারনেট কানেকশন চেক করুন"
+                                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "টাইমআউট হয়েছে"
+                                        else -> "ভয়েস কোড: $error"
+                                    }
+                                    Toast.makeText(this@SmartKeyboardService, errorMsg, Toast.LENGTH_SHORT).show()
                                 }
-                                Toast.makeText(this@SmartKeyboardService, errorMsg, Toast.LENGTH_SHORT).show()
                             }
 
                             override fun onResults(results: Bundle?) {
@@ -1054,7 +1144,7 @@ class SmartKeyboardService : InputMethodService() {
                             override fun onPartialResults(partialResults: Bundle?) {
                                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                                 if (!matches.isNullOrEmpty()) {
-                                    btnMic.text = "🔴"
+                                    updateMicButtonState(true, "🔴 ${matches[0].take(10)}...")
                                 }
                             }
 
@@ -1068,32 +1158,56 @@ class SmartKeyboardService : InputMethodService() {
                     val langCode = if (currentMode == TypingMode.ENGLISH) "en-US" else "bn-BD"
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
-                    putExtra(RecognizerIntent.EXTRA_PROMPT, "কথা বলুন...")
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "শুনতেছি... কথা বলুন")
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                 }
 
                 speechRecognizer?.startListening(speechIntent)
                 isListening = true
-                btnMic.text = "🔴"
-                btnMic.background = createRoundedDrawable(Color.parseColor("#EF4444"), dpToPx(18))
+                updateMicButtonState(true, "🔴 শুনতেছি...")
             } catch (e: Exception) {
                 isListening = false
-                Toast.makeText(this, "ভয়েস চালু করতে সমস্যা: ${e.message}", Toast.LENGTH_SHORT).show()
+                // Fallback to voice input dialog
+                launchVoiceInputDialog()
+            }
+        }
+    }
+
+    private fun updateMicButtonState(listening: Boolean, label: String) {
+        mainHandler.post {
+            val theme = getCurrentTheme()
+            if (listening) {
+                btnMic.text = label
+                btnMic.textSize = 12f
+                btnMic.background = createRoundedDrawable(Color.parseColor("#EF4444"), dpToPx(18))
+                btnMic.layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dpToPx(38)
+                ).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    setMargins(dpToPx(4), 0, dpToPx(4), 0)
+                }
+            } else {
+                btnMic.text = "🎙️"
+                btnMic.textSize = 16f
+                btnMic.background = createRoundedDrawable(theme.actionKeyBg, dpToPx(18))
+                btnMic.layoutParams = LinearLayout.LayoutParams(
+                    dpToPx(38),
+                    dpToPx(38)
+                ).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
             }
         }
     }
 
     private fun stopVoiceListening() {
         isListening = false
-        val theme = getCurrentTheme()
-        mainHandler.post {
-            btnMic.text = "🎙️"
-            btnMic.background = createRoundedDrawable(theme.actionKeyBg, dpToPx(18))
-            try {
-                speechRecognizer?.stopListening()
-            } catch (e: Exception) {}
-        }
+        updateMicButtonState(false, "🎙️")
+        try {
+            speechRecognizer?.stopListening()
+        } catch (e: Exception) {}
     }
 
     private fun getEnglishKeyRows(): List<List<String>> {

@@ -46,6 +46,12 @@
             android:exported="false"
             android:theme="@style/Theme.Transparent" />
 
+        <!-- Dedicated Voice Input Dialog Activity (Universal Speech Fallback) -->
+        <activity
+            android:name=".ui.VoiceInputDialogActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Transparent" />
+
         <!-- Settings & Onboarding Activity -->
         <activity
             android:name=".ui.SettingsActivity"

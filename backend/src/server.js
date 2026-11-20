@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.1.0',
+    latestVersion: '1.2.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.1.0-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.1.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.1.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.2.0-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.2.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.2.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.১.০: জি-বোর্ড কনফিগারেশন টুলবার, অন-দ্য-ফ্লাই মাইক্রোফোন পারমিশন হ্যান্ডলার, এবং ডেডিকেটেড আনলিমিটেড পিনেবল ক্লিপবোর্ড প্যানেল।',
-      en: 'New version 1.1.0: Gboard-style toolbar configuration, on-the-fly microphone runtime permission handler, and dedicated unlimited pinnable clipboard panel.'
+      bn: 'নতুন সংস্করণ ১.২.০: ব্যাকস্পেস হোল্ড অটো-রিপিট ডিলিট, ডুয়াল স্পিচ ইঞ্জিন "শুনতেছি..." ফিডব্যাক, বাংলিশ কম্পোজিং প্রিভিউ সাজেশন ফিক্স, এবং জেমিনাই এআই কানেকশন গ্রিন সিগন্যাল।',
+      en: 'New version 1.2.0: Auto-repeat backspace hold delete, dual speech engine with "Listening..." feedback, Banglish composing preview suggestion fix, and Gemini AI connection green signal badge.'
     },
     forceUpdate: false
   }

@@ -16,6 +16,24 @@ class GeminiService(private var apiKey: String) {
         this.apiKey = newKey
     }
 
+    suspend fun verifyConnection(): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (apiKey.isBlank()) {
+                    return@withContext Result.failure(Exception("API Key খালি রাখা হয়েছে"))
+                }
+                val result = callGemini("Reply with only the word OK", "ping")
+                if (result.isSuccess) {
+                    Result.success(true)
+                } else {
+                    Result.failure(result.exceptionOrNull() ?: Exception("Verification failed"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
     suspend fun translateText(text: String, sourceLang: String, targetLang: String): Result<String> {
         val direction = if (sourceLang == "en" && targetLang == "bn") {
             "English to fluent natural Bengali"

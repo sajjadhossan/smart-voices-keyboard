@@ -13,8 +13,11 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.smartvoices.keyboard.R
 import com.smartvoices.keyboard.clipboard.ClipboardDbHelper
+import com.smartvoices.keyboard.gemini.GeminiService
+import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -25,6 +28,8 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var tvPermissionStatus: TextView
     private lateinit var btnGrantPermission: Button
+    private lateinit var tvApiStatus: TextView
+    private lateinit var btnTestApi: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +40,9 @@ class SettingsActivity : AppCompatActivity() {
 
         tvPermissionStatus = findViewById(R.id.tvPermissionStatus)
         btnGrantPermission = findViewById(R.id.btnGrantPermission)
+        tvApiStatus = findViewById(R.id.tvApiStatus)
+        btnTestApi = findViewById(R.id.btnTestApi)
+
         val btnEnable = findViewById<Button>(R.id.btnEnableKeyboard)
         val btnSelect = findViewById<Button>(R.id.btnSelectKeyboard)
         val etApiKey = findViewById<EditText>(R.id.etApiKey)
@@ -77,9 +85,55 @@ class SettingsActivity : AppCompatActivity() {
         spinnerDefaultMode.setSelection(modeIndex)
 
         // Load existing preferences
-        etApiKey.setText(prefs.getString("gemini_api_key", ""))
+        val initialApiKey = prefs.getString("gemini_api_key", "") ?: ""
+        etApiKey.setText(initialApiKey)
         cbVibration.isChecked = prefs.getBoolean("enable_vibration", true)
         cbSound.isChecked = prefs.getBoolean("enable_sound", true)
+
+        val isVerified = prefs.getBoolean("gemini_api_verified", false)
+        if (initialApiKey.isNotBlank() && isVerified) {
+            tvApiStatus.text = "🟢 Gemini API সক্রিয় ও প্রস্তুত (Active)"
+            tvApiStatus.setTextColor(Color.parseColor("#10B981"))
+        } else if (initialApiKey.isNotBlank()) {
+            tvApiStatus.text = "🟡 API Key দেওয়া আছে (ভেরিফাই করা হয়নি)"
+            tvApiStatus.setTextColor(Color.parseColor("#F59E0B"))
+        } else {
+            tvApiStatus.text = "⚪ API Key খালি (অনুবাদ নিষ্ক্রিয়)"
+            tvApiStatus.setTextColor(Color.parseColor("#94A3B8"))
+        }
+
+        btnTestApi.setOnClickListener {
+            val key = etApiKey.text.toString().trim()
+            if (key.isBlank()) {
+                tvApiStatus.text = "🔴 অনুগ্রহ করে প্রথমে API Key লিখুন"
+                tvApiStatus.setTextColor(Color.parseColor("#EF4444"))
+                return@setOnClickListener
+            }
+
+            tvApiStatus.text = "⏳ Gemini API যাচাই করা হচ্ছে..."
+            tvApiStatus.setTextColor(Color.parseColor("#6366F1"))
+            btnTestApi.isEnabled = false
+
+            lifecycleScope.launch {
+                val service = GeminiService(key)
+                val result = service.verifyConnection()
+                btnTestApi.isEnabled = true
+                result.onSuccess {
+                    tvApiStatus.text = "🟢 Gemini API কানেক্টেড ও সফলভাবে প্রস্তুত! (Active)"
+                    tvApiStatus.setTextColor(Color.parseColor("#10B981"))
+                    prefs.edit()
+                        .putString("gemini_api_key", key)
+                        .putBoolean("gemini_api_verified", true)
+                        .apply()
+                    Toast.makeText(this@SettingsActivity, "Gemini API সফলভাবে ভেরিফাই হয়েছে! 🟢", Toast.LENGTH_SHORT).show()
+                }.onFailure { err ->
+                    tvApiStatus.text = "🔴 এপিআই কানেকশন ত্রুটি: ${err.message}"
+                    tvApiStatus.setTextColor(Color.parseColor("#EF4444"))
+                    prefs.edit().putBoolean("gemini_api_verified", false).apply()
+                    Toast.makeText(this@SettingsActivity, "API Key কাজ করছে না: ${err.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
 
         btnEnable.setOnClickListener {
             val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
