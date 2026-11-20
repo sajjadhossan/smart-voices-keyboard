@@ -6,6 +6,7 @@
 const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
+const { createBackup, restoreBackup } = require('../../core/backup/backup-manager');
 
 const PORT = process.env.PORT || 4000;
 
@@ -53,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.6.0',
+    latestVersion: '1.7.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.6.0-build9-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.6.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.6.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.7.0-build10-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.7.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.7.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৬.০ (ফেজ ৪): জেমিনি এআই ভয়েস ডিকটেশন ও অডিও অ্যাকোস্টিক প্রসেসিং — VAD সাইলেন্স অটো-স্টপ, স্পোকেন ও অটো-পাংকচুয়েশন (দাড়ি, কমা, জিজ্ঞাসা), ভয়েস কমান্ডস এবং টুলবারে তাৎক্ষণিক বাংলা/ইংরেজি ভয়েস ল্যাঙ্গুয়েজ সুইচার।',
-      en: 'New version 1.6.0 (Phase 4): Gemini AI voice dictation and acoustic processing with VAD silence auto-stop, spoken & auto-punctuation, voice commands, and toolbar Bengali/English voice toggle.'
+      bn: 'নতুন সংস্করণ ১.৭.০ (ফেজ ৫): ক্রস-প্ল্যাটফর্ম ব্যাকআপ/রিস্টোর ও AES-256 এনক্রিপশন — সেটিংস, ডিকশনারি ও ক্লিপবোর্ড ইনস্ট্যান্ট JSON ব্যাকআপ এক্সপোর্ট/ইমপোর্ট এবং ক্লাউড ব্যাকআপ এপিআই।',
+      en: 'New version 1.7.0 (Phase 5): Cross-Platform Backup/Restore & AES-256-GCM encryption with instant JSON backup export/import and cloud backup API.'
     },
     forceUpdate: false
   }
@@ -207,7 +208,7 @@ const requestHandler = async (req, res) => {
 
   // Auth Guard for Protected Endpoints
   const authUser = verifyToken(req.headers['authorization']);
-  if (!authUser && pathname.startsWith('/api/clipboard')) {
+  if (!authUser && (pathname.startsWith('/api/clipboard') || pathname.startsWith('/api/backup'))) {
     return sendError(res, 401, 'Unauthorized token missing or invalid', 'auth_token_expired');
   }
 
@@ -284,6 +285,75 @@ const requestHandler = async (req, res) => {
 
     clip.deleted_at = new Date().toISOString();
     return sendSuccess(res, 200, 'Clip deleted successfully (soft delete)', { id: clipId });
+  }
+
+  // 8. Export Cloud Backup (Phase 5)
+  if (pathname === '/api/backup/export' && method === 'POST') {
+    let body = {};
+    try { body = await parseBody(req); } catch (e) {}
+
+    const userClips = db.clips
+      .filter(c => c.tenant_id === authUser.tenant_id && !c.deleted_at)
+      .map(c => ({
+        id: c.id,
+        text: c.content,
+        is_pinned: !!c.is_pinned,
+        copy_count: c.copy_count || 1,
+        created_at: c.created_at
+      }));
+
+    const passphrase = body?.passphrase || null;
+    const backupData = createBackup({
+      settings: {
+        theme: 'dark',
+        default_mode: 'banglish',
+        tenant_id: authUser.tenant_id
+      },
+      clips: userClips,
+      userDictionary: [],
+      passphrase
+    });
+
+    return sendSuccess(res, 200, 'Backup generated successfully', backupData);
+  }
+
+  // 9. Import Cloud Backup (Phase 5)
+  if (pathname === '/api/backup/import' && method === 'POST') {
+    let body = {};
+    try { body = await parseBody(req); } catch (e) {}
+
+    const backupObj = body?.backup || body;
+    const passphrase = body?.passphrase || null;
+
+    const restoreRes = restoreBackup(backupObj, passphrase);
+    if (!restoreRes.success) {
+      return sendError(res, 422, restoreRes.error, 'validation_error');
+    }
+
+    let importedCount = 0;
+    const restoredClips = restoreRes.data.clips || [];
+    for (const item of restoredClips) {
+      if (!item.text) continue;
+      const existing = db.clips.find(c => c.tenant_id === authUser.tenant_id && c.content === item.text);
+      if (!existing) {
+        db.clips.unshift({
+          id: item.id || `clip_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          tenant_id: authUser.tenant_id,
+          content: item.text,
+          is_pinned: !!item.is_pinned,
+          copy_count: item.copy_count || 1,
+          created_at: new Date(item.created_at || Date.now()).toISOString(),
+          updated_at: new Date().toISOString(),
+          deleted_at: null
+        });
+        importedCount++;
+      }
+    }
+
+    return sendSuccess(res, 200, 'Backup imported successfully', {
+      imported_clips: importedCount,
+      total_clips: db.clips.filter(c => c.tenant_id === authUser.tenant_id && !c.deleted_at).length
+    });
   }
 
   // Fallback 404

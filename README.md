@@ -50,6 +50,11 @@ A modern, commercial-grade, cross-platform voice keyboard application for **Andr
    - Natural voice commands: "মুছে দাও", "নতুন লাইন", "বাংলা করো: ...", "ইংরেজি করো: ...".
    - Direct toolbar voice language toggle (🇧🇩 BN ⇄ 🇺🇸 EN) for instant multilingual voice typing.
 
+10. **🔒 Cross-Platform Backup/Restore & AES-256-GCM Security (Phase 5)**:
+    - Encrypted and unencrypted JSON backup export & restore across Android, Windows, macOS, and Web.
+    - Automatic deduplication and conflict-free merging of clipboard history and custom user dictionary.
+    - Centralized authenticated backup API (`POST /api/backup/export` and `POST /api/backup/import`).
+
 ---
 
 ## 🏗️ Project Architecture

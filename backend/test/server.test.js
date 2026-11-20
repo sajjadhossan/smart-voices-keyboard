@@ -56,7 +56,7 @@ async function runBackendTests() {
 
     assert.strictEqual(verRes.statusCode, 200);
     assert.strictEqual(verRes.body.success, true);
-    assert.strictEqual(verRes.body.data.latestVersion, '1.6.0');
+    assert.strictEqual(verRes.body.data.latestVersion, '1.7.0');
     assert(verRes.body.data.apkDownloadUrl.includes('.apk'));
     console.log('  [PASS] Version parity API returns correct contract.');
 
@@ -139,6 +139,53 @@ async function runBackendTests() {
     });
     assert.strictEqual(afterDelRes.body.data.length, 1);
     console.log('  [PASS] Soft delete verified (record retained with audit timestamp).');
+
+    // 6. Test Backup Export (Phase 5)
+    console.log('\n6. Testing POST /api/backup/export...');
+    const exportRes = await request({
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/backup/export',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    assert.strictEqual(exportRes.statusCode, 200);
+    assert.strictEqual(exportRes.body.data.app, 'smart-voices-keyboard');
+    assert(Array.isArray(exportRes.body.data.data.clips));
+    console.log('  [PASS] Cloud backup export verified.');
+
+    // 7. Test Backup Import (Phase 5)
+    console.log('\n7. Testing POST /api/backup/import...');
+    const importPayload = {
+      app: 'smart-voices-keyboard',
+      version: '1.7.0',
+      exported_at: new Date().toISOString(),
+      encrypted: false,
+      data: {
+        settings: { theme: 'ocean' },
+        clips: [
+          { text: 'নতুন ব্যাকআপ ক্লিপ ১', is_pinned: true },
+          { text: 'নতুন ব্যাকআপ ক্লিপ ২', is_pinned: false }
+        ]
+      }
+    };
+
+    const importRes = await request({
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/backup/import',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    }, importPayload);
+    assert.strictEqual(importRes.statusCode, 200);
+    assert.strictEqual(importRes.body.data.imported_clips, 2);
+    console.log('  [PASS] Cloud backup import and deduplication verified.');
 
     console.log('\n=== ALL BACKEND API CONTRACT TESTS PASSED! ===');
   } finally {

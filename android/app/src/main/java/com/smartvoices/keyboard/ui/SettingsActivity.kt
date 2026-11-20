@@ -23,6 +23,7 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         private const val PERMISSION_REQ_CODE = 1001
+        private const val REQUEST_CODE_RESTORE = 2002
         const val ACTION_SETTINGS_UPDATED = "com.smartvoices.keyboard.SETTINGS_UPDATED"
     }
 
@@ -203,6 +204,55 @@ class SettingsActivity : AppCompatActivity() {
         btnClearClipboard.setOnClickListener {
             val cleared = clipboardDb.clearUnpinned()
             Toast.makeText(this, "$cleared টি অপিনকৃত ক্লিপ মুছে ফেলা হয়েছে", Toast.LENGTH_SHORT).show()
+        }
+
+        // Backup & Restore Actions
+        val btnExportBackup = findViewById<Button>(R.id.btnExportBackup)
+        val btnImportBackup = findViewById<Button>(R.id.btnImportBackup)
+
+        btnExportBackup?.setOnClickListener {
+            try {
+                val backupJson = com.smartvoices.keyboard.backup.BackupManager.createBackupJson(this)
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_SUBJECT, "Smart Voice Keyboard Backup")
+                    putExtra(Intent.EXTRA_TEXT, backupJson)
+                }
+                startActivity(Intent.createChooser(shareIntent, "ব্যাকআপ শেয়ার বা সেভ করুন"))
+                Toast.makeText(this, "ব্যাকআপ প্রস্তুত হয়েছে! 📥", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "ব্যাকআপ তৈরিতে ত্রুটি: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        btnImportBackup?.setOnClickListener {
+            val filePickerIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }
+            startActivityForResult(Intent.createChooser(filePickerIntent, "ব্যাকআপ ফাইল বেছে নিন"), REQUEST_CODE_RESTORE)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_CODE_RESTORE && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                val jsonString = contentResolver.openInputStream(uri)?.bufferedReader().use { it?.readText() } ?: ""
+                val res = com.smartvoices.keyboard.backup.BackupManager.restoreFromJson(this, jsonString)
+                res.onSuccess { count ->
+                    Toast.makeText(this, "সফলভাবে $count টি আইটেম রিস্টোর হয়েছে! 🟢", Toast.LENGTH_LONG).show()
+                    val updateIntent = Intent(ACTION_SETTINGS_UPDATED).apply {
+                        setPackage(packageName)
+                    }
+                    sendBroadcast(updateIntent)
+                }.onFailure { err ->
+                    Toast.makeText(this, "রিস্টোর ব্যর্থ: ${err.message}", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "ফাইল পড়তে সমস্যা হয়েছে: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

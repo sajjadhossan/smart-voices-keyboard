@@ -595,6 +595,101 @@ document.addEventListener('DOMContentLoaded', async () => {
     alert('সেটিংস সফলভাবে সংরক্ষিত হয়েছে! (Settings saved 🟢)');
   });
 
+  // Backup & Restore Handlers (Phase 5)
+  document.getElementById('btnExportBackup')?.addEventListener('click', async () => {
+    try {
+      const clips = window.api?.getClips ? await window.api.getClips() : (JSON.parse(localStorage.getItem('smart_keyboard_clips') || '[]'));
+      const settingsPayload = {
+        geminiApiKey: settingApiKey?.value?.trim() || '',
+        defaultLanguage: settingDefaultLanguage?.value || 'bn',
+        sttEngine: settingSttEngine?.value || 'native',
+        theme: settingAppTheme ? settingAppTheme.value : 'dark',
+        autoPaste: settingAutoPaste ? settingAutoPaste.checked : true,
+        alwaysOnTop: settingAlwaysOnTop ? settingAlwaysOnTop.checked : true
+      };
+
+      const backupData = {
+        app: 'smart-voices-keyboard',
+        version: '1.7.0',
+        exported_at: new Date().toISOString(),
+        encrypted: false,
+        data: {
+          settings: settingsPayload,
+          clips: clips,
+          user_dictionary: []
+        }
+      };
+
+      const jsonBlob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const downloadUrl = URL.createObjectURL(jsonBlob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `smart-voices-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+      alert('ব্যাকআপ ফাইল সফলভাবে ডাউনলোড হয়েছে! 📥');
+    } catch (e) {
+      alert('ব্যাকআপ তৈরি ব্যর্থ: ' + e.message);
+    }
+  });
+
+  const backupFileInput = document.getElementById('backupFileInput');
+  document.getElementById('btnTriggerImportBackup')?.addEventListener('click', () => {
+    backupFileInput?.click();
+  });
+
+  backupFileInput?.addEventListener('change', (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const rawJson = e.target.result;
+        const backupObj = JSON.parse(rawJson);
+        if (backupObj.app !== 'smart-voices-keyboard') {
+          alert('ত্রুটি: এটি স্মার্ট ভয়েস কিবোর্ডের বৈধ ব্যাকআপ ফাইল নয়।');
+          return;
+        }
+
+        const data = backupObj.data || {};
+        if (data.settings) {
+          const s = data.settings;
+          if (settingApiKey && s.geminiApiKey) settingApiKey.value = s.geminiApiKey;
+          if (settingDefaultLanguage && s.defaultLanguage) settingDefaultLanguage.value = s.defaultLanguage;
+          if (settingSttEngine && s.sttEngine) settingSttEngine.value = s.sttEngine;
+          if (s.theme) {
+            applyTheme(s.theme);
+          }
+          if (settingAutoPaste && s.autoPaste !== undefined) settingAutoPaste.checked = s.autoPaste;
+          if (settingAlwaysOnTop && s.alwaysOnTop !== undefined) settingAlwaysOnTop.checked = s.alwaysOnTop;
+        }
+
+        let importedClips = 0;
+        if (Array.isArray(data.clips)) {
+          for (const c of data.clips) {
+            if (c.text) {
+              if (window.api?.saveClip) {
+                await window.api.saveClip(c.text);
+              }
+              importedClips++;
+            }
+          }
+        }
+
+        alert(`রিস্টোর সম্পন্ন! ${importedClips} টি ক্লিপ ও সেটিংস সফলভাবে লোড হয়েছে। 🟢`);
+        loadClipboardItems();
+      } catch (err) {
+        alert('রিস্টোর ত্রুটি: ' + err.message);
+      } finally {
+        backupFileInput.value = '';
+      }
+    };
+    reader.readAsText(file);
+  });
+
   // Helpers
   function escapeHtml(text) {
     const div = document.createElement('div');

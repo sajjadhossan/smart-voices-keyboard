@@ -22,7 +22,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="By Sajjad Hossan • Version 1.0.0"
+            android:text="By Sajjad Hossan • Version 1.7.0"
             android:textColor="#94A3B8"
             android:textSize="12sp" />
 
@@ -289,7 +289,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:layout_marginBottom="30dp"
             android:background="#1E293B"
             android:orientation="vertical"
             android:padding="16dp">
@@ -310,6 +309,60 @@
                 android:backgroundTint="#EF4444"
                 android:text="ক্লিপবোর্ড মেমোরি খালি করুন (Clear Unpinned)"
                 android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+        <!-- Backup & Restore Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="30dp"
+            android:background="#1E293B"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔒 ডাটা ব্যাকআপ ও রিস্টোর (Backup &amp; Restore)"
+                android:textColor="#10B981"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="আপনার কিবোর্ডের সেটিংস ও ক্লিপবোর্ড হিস্টোরি সুরক্ষিতভাবে ব্যাকআপ নিন বা রিস্টোর করুন।"
+                android:textColor="#94A3B8"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnExportBackup"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:backgroundTint="#059669"
+                    android:text="📥 ব্যাকআপ সেভ"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btnImportBackup"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:backgroundTint="#475569"
+                    android:text="📤 রিস্টোর করুন"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
         </LinearLayout>
 
     </LinearLayout>
