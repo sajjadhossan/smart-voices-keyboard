@@ -194,8 +194,13 @@ class SmartKeyboardService : InputMethodService() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 SettingsActivity.ACTION_SETTINGS_UPDATED -> {
-                    val newApiKey = intent.getStringExtra("gemini_api_key") ?: ""
-                    geminiService = GeminiService(newApiKey)
+                    val keyFromIntent = intent.getStringExtra("gemini_api_key")
+                    val effectiveKey = if (!keyFromIntent.isNullOrBlank()) {
+                        keyFromIntent
+                    } else {
+                        prefs.getString("gemini_api_key", "") ?: ""
+                    }
+                    geminiService = GeminiService(effectiveKey)
                     if (::rootLayout.isInitialized) {
                         rebuildEntireUI()
                     }

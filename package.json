@@ -1,6 +1,6 @@
 {
   "name": "smart-voices-keyboard",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Cross-platform voice keyboard application with free open-source STT, Gemini API translation, unlimited clipboard, and Bangla/English/Banglish typing for Android, Windows, and macOS.",
   "author": "Sajjad Hossan",
   "license": "MIT",
@@ -20,8 +20,9 @@
     "test:sync": "node core/test/sync-client.test.js",
     "test:livetranslate": "node core/test/live-translation.test.js",
     "test:prediction": "node core/test/prediction-engine.test.js",
+    "test:theme": "node --test core/test/theme-engine.test.js",
     "test:backend": "node backend/test/server.test.js",
-    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:livetranslate && npm run test:prediction && npm run test:desktop && npm run test:backend"
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:livetranslate && npm run test:prediction && npm run test:theme && npm run test:desktop && npm run test:backend"
   },
   "dependencies": {
     "dotenv": "^16.4.7"

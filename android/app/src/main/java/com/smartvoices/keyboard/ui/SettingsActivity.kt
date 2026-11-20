@@ -82,6 +82,27 @@ class SettingsActivity : AppCompatActivity() {
         val themeIndex = themeKeys.indexOf(savedTheme).coerceAtLeast(0)
         spinnerThemes.setSelection(themeIndex)
 
+        // Instant Live Theme Preview on Selection
+        var isInitialThemeSpinnerSetup = true
+        spinnerThemes.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (isInitialThemeSpinnerSetup) {
+                    isInitialThemeSpinnerSetup = false
+                    return
+                }
+                val selectedThemeKey = themeKeys[position]
+                prefs.edit().putString("theme", selectedThemeKey).apply()
+                val updateIntent = Intent(ACTION_SETTINGS_UPDATED).apply {
+                    putExtra("theme", selectedThemeKey)
+                    putExtra("gemini_api_key", prefs.getString("gemini_api_key", "") ?: "")
+                    setPackage(packageName)
+                }
+                sendBroadcast(updateIntent)
+                Toast.makeText(this@SettingsActivity, "থিম সেট করা হয়েছে: ${themeNames[position]} 🎨", Toast.LENGTH_SHORT).show()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         // Setup Default Mode Spinner
         val modeKeys = listOf("english", "banglish", "bangla")
         val modeNames = listOf("English (QWERTY)", "বাংলিশ ফোনেটিক (Banglish to Bangla)", "খাঁটি বাংলা ইউনিকোড (Bangla)")

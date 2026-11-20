@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.5.0',
+    latestVersion: '1.5.1',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.5.0-build7-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.5.1-build8-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.1-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.5.1-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৫.০ (Phase 2): উন্নত স্মার্ট প্রেডিকশন ইঞ্জিন — বাংলা ও ইংরেজি অটো-কারেক্ট, এন-গ্রাম নেক্সট-ওয়ার্ড চেইনিং, ইউজার ডিকশনারি লার্নিং, ইমোজি সাজেশন এবং ডেস্কটপ লাইভ প্রেডিকশন চিপস।',
-      en: 'New version 1.5.0 (Phase 2): Advanced Intelligent Prediction Engine with Bengali/English autocorrect, N-gram next-word chaining, user dictionary learning, emoji associations, and desktop prediction chips.'
+      bn: 'নতুন সংস্করণ ১.৫.১ (ফেজ ৩): ডাইনামিক ৭টি প্রিমিয়াম কালার থিম সুইচার (Dark Slate, AMOLED, Light, Cyber Neon, Ocean Blue, Forest Emerald, Sunset Flame) মোবাইল ও ডেস্কটপে লাইভ রিয়েলটাইম প্রিভিউ সহ সংযুক্ত।',
+      en: 'New version 1.5.1 (Phase 3): Dynamic 7-Theme Switcher (Dark Slate, AMOLED Black, Modern Light, Cyber Neon, Ocean Blue, Forest Emerald, Sunset Flame) with instant real-time live preview across mobile, desktop, and web.'
     },
     forceUpdate: false
   }

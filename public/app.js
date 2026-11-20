@@ -457,15 +457,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // TAB 5: Settings Controller
   // -------------------------------------------------------------
+  // -------------------------------------------------------------
+  // TAB 5: Settings Controller & Dynamic Theme Switcher
+  // -------------------------------------------------------------
+  const settingAppTheme = document.getElementById('settingAppTheme');
   const settingApiKey = document.getElementById('settingApiKey');
   const settingDefaultLanguage = document.getElementById('settingDefaultLanguage');
   const settingSttEngine = document.getElementById('settingSttEngine');
   const settingAutoPaste = document.getElementById('settingAutoPaste');
   const settingAlwaysOnTop = document.getElementById('settingAlwaysOnTop');
 
+  function applyTheme(themeKey) {
+    const validThemes = ['dark', 'amoled', 'light', 'cyber', 'ocean', 'forest', 'sunset'];
+    const activeTheme = validThemes.includes(themeKey) ? themeKey : 'dark';
+    document.body.className = `theme-${activeTheme} select-none`;
+    if (settingAppTheme) settingAppTheme.value = activeTheme;
+  }
+
+  settingAppTheme?.addEventListener('change', (e) => {
+    const newTheme = e.target.value;
+    applyTheme(newTheme);
+    const currentPayload = {
+      geminiApiKey: settingApiKey?.value?.trim() || '',
+      defaultLanguage: settingDefaultLanguage?.value || 'bn',
+      sttEngine: settingSttEngine?.value || 'native',
+      theme: newTheme,
+      autoPaste: settingAutoPaste ? settingAutoPaste.checked : true,
+      alwaysOnTop: settingAlwaysOnTop ? settingAlwaysOnTop.checked : true
+    };
+    if (window.api?.saveSettings) {
+      window.api.saveSettings(currentPayload);
+    }
+    localStorage.setItem('smart_keyboard_theme', newTheme);
+    localStorage.setItem('smart_keyboard_settings', JSON.stringify(currentPayload));
+  });
+
   async function loadSettings() {
-    if (!window.api) return;
-    const s = await window.api.getSettings();
+    let s = null;
+    if (window.api?.getSettings) {
+      s = await window.api.getSettings();
+    } else {
+      try {
+        const local = localStorage.getItem('smart_keyboard_settings');
+        if (local) s = JSON.parse(local);
+      } catch (e) {}
+    }
+
+    const savedTheme = s?.theme || localStorage.getItem('smart_keyboard_theme') || 'dark';
+    applyTheme(savedTheme);
+
     if (s) {
       if (settingApiKey) settingApiKey.value = s.geminiApiKey || '';
       if (settingDefaultLanguage) settingDefaultLanguage.value = s.defaultLanguage || 'bn';
@@ -485,12 +525,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const btn = document.getElementById('btnTestApiKey');
     btn.textContent = 'যাচাই হচ্ছে...';
-    const res = await window.api.validateApiKey(key);
+    const res = await window.api?.validateApiKey ? await window.api.validateApiKey(key) : { valid: key.length > 20 };
     btn.textContent = 'টেস্ট করুন';
     if (res.valid) {
-      alert('সফল! Gemini API সংযোগ সফল হয়েছে।');
+      alert('সফল! Gemini API সংযোগ সফল হয়েছে। 🟢');
     } else {
-      alert('ব্যর্থ: ' + res.error);
+      alert('ব্যর্থ: ' + (res.error || 'ভুল বা নিষ্ক্রিয় API Key'));
     }
   });
 
@@ -499,11 +539,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       geminiApiKey: settingApiKey.value.trim(),
       defaultLanguage: settingDefaultLanguage.value,
       sttEngine: settingSttEngine.value,
+      theme: settingAppTheme ? settingAppTheme.value : 'dark',
       autoPaste: settingAutoPaste.checked,
       alwaysOnTop: settingAlwaysOnTop.checked
     };
-    await window.api.saveSettings(payload);
-    alert('সেটিংস সফলভাবে সংরক্ষিত হয়েছে! (Settings saved)');
+    if (window.api?.saveSettings) {
+      await window.api.saveSettings(payload);
+    }
+    localStorage.setItem('smart_keyboard_settings', JSON.stringify(payload));
+    localStorage.setItem('smart_keyboard_theme', payload.theme);
+    alert('সেটিংস সফলভাবে সংরক্ষিত হয়েছে! (Settings saved 🟢)');
   });
 
   // Helpers

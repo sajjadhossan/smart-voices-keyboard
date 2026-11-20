@@ -34,7 +34,15 @@ A modern, commercial-grade, cross-platform voice keyboard application for **Andr
    - System tray integration with quick actions: Dictate, Translate, Clipboard, Settings.
 
 6. **📱 Native Android Input Method Service (IME)**:
-   - Complete system-level Android keyboard implementation with an integrated toolbar, voice mic, clipboard drawer, and one-tap translation.
+   - Complete system-level Android keyboard implementation with an integrated Gboard-style toolbar, voice mic, clipboard drawer, and one-tap live translation.
+
+7. **⚡ Gboard-Style Live Inline Translation & Intelligent Prediction**:
+   - Live bidirectional translation buffer with automatic typing injection.
+   - Smart N-gram word prediction, autocorrect for English and Bengali typos, dynamic dictionary learning, and context emojis.
+
+8. **🎨 Dynamic 7-Theme Switcher (Mobile, Desktop & Web)**:
+   - 7 handcrafted color themes: **Dark Slate** (default), **AMOLED Black** (pure black for battery savings), **Modern Light**, **Cyber Neon** (cyberpunk violet), **Ocean Blue**, **Forest Emerald**, and **Sunset Flame**.
+   - Instant real-time live preview upon selection with zero reload needed.
 
 ---
 
