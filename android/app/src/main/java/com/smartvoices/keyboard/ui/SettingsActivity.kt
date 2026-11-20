@@ -146,21 +146,21 @@ class SettingsActivity : AppCompatActivity() {
 
             lifecycleScope.launch {
                 val service = GeminiService(key)
-                val result = service.verifyConnection()
+                val status = service.pingConnection()
                 btnTestApi.isEnabled = true
-                result.onSuccess {
-                    tvApiStatus.text = "🟢 Gemini API কানেক্টেড ও সফলভাবে প্রস্তুত! (Active)"
+                if (status.isConnected) {
+                    tvApiStatus.text = "🟢 Gemini API সক্রিয় | ল্যাটেন্সি: ${status.latencyMs}ms | মডেল: 1.5-Flash"
                     tvApiStatus.setTextColor(Color.parseColor("#10B981"))
                     prefs.edit()
                         .putString("gemini_api_key", key)
                         .putBoolean("gemini_api_verified", true)
                         .apply()
-                    Toast.makeText(this@SettingsActivity, "Gemini API সফলভাবে ভেরিফাই হয়েছে! 🟢", Toast.LENGTH_SHORT).show()
-                }.onFailure { err ->
-                    tvApiStatus.text = "🔴 এপিআই কানেকশন ত্রুটি: ${err.message}"
+                    Toast.makeText(this@SettingsActivity, "Gemini API সক্রিয়! 🟢 (${status.latencyMs}ms)", Toast.LENGTH_SHORT).show()
+                } else {
+                    tvApiStatus.text = "🔴 এপিআই ত্রুটি: ${status.message}"
                     tvApiStatus.setTextColor(Color.parseColor("#EF4444"))
                     prefs.edit().putBoolean("gemini_api_verified", false).apply()
-                    Toast.makeText(this@SettingsActivity, "API Key কাজ করছে না: ${err.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@SettingsActivity, "API Key কাজ করছে না: ${status.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

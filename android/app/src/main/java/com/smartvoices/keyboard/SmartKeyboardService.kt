@@ -768,10 +768,30 @@ class SmartKeyboardService : InputMethodService() {
                     triggerHapticAndSound()
                     val conn = currentInputConnection ?: return@setOnClickListener
                     PredictionEngine.learnWord(cand)
+
                     if (currentMode == TypingMode.BANGLISH && phoneticBuffer.isNotEmpty()) {
+                        conn.setComposingText("", 1)
+                        conn.finishComposingText()
                         conn.commitText("$cand ", 1)
                         phoneticBuffer.clear()
                     } else {
+                        // Precision token replacement to prevent word duplication
+                        val textBefore = conn.getTextBeforeCursor(50, 0)?.toString() ?: ""
+                        var partialWordLen = 0
+                        if (textBefore.isNotEmpty() && !Character.isWhitespace(textBefore.last())) {
+                            var idx = textBefore.length
+                            val isPunctOrSpace = { ch: Char -> Character.isWhitespace(ch) || ",.!?;:-–—\"'`()[]{}।॥".indexOf(ch) >= 0 }
+                            while (idx > 0 && !isPunctOrSpace(textBefore[idx - 1])) {
+                                idx--
+                            }
+                            val partialWord = textBefore.substring(idx)
+                            if (cand.startsWith(partialWord, ignoreCase = true) || cand.length >= partialWord.length) {
+                                partialWordLen = partialWord.length
+                            }
+                        }
+                        if (partialWordLen > 0) {
+                            conn.deleteSurroundingText(partialWordLen, 0)
+                        }
                         conn.commitText("$cand ", 1)
                     }
                     updateSuggestions()

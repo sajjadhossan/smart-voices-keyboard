@@ -10,27 +10,46 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class ApiHealthStatus(
+    val isConnected: Boolean,
+    val latencyMs: Long = 0L,
+    val message: String = ""
+)
+
 class GeminiService(private var apiKey: String) {
 
     fun updateApiKey(newKey: String) {
         this.apiKey = newKey
     }
 
-    suspend fun verifyConnection(): Result<Boolean> {
+    suspend fun pingConnection(): ApiHealthStatus {
         return withContext(Dispatchers.IO) {
+            val start = System.currentTimeMillis()
             try {
                 if (apiKey.isBlank()) {
-                    return@withContext Result.failure(Exception("API Key খালি রাখা হয়েছে"))
+                    return@withContext ApiHealthStatus(false, 0, "API Key খালি রাখা হয়েছে")
                 }
                 val result = callGemini("Reply with only the word OK", "ping")
+                val latency = (System.currentTimeMillis() - start).coerceAtLeast(1L)
                 if (result.isSuccess) {
-                    Result.success(true)
+                    ApiHealthStatus(true, latency, "কানেকশন সক্রিয় (ল্যাটেন্সি: ${latency}ms)")
                 } else {
-                    Result.failure(result.exceptionOrNull() ?: Exception("Verification failed"))
+                    val err = result.exceptionOrNull()?.message ?: "কানেকশন ব্যর্থ"
+                    ApiHealthStatus(false, latency, err)
                 }
             } catch (e: Exception) {
-                Result.failure(e)
+                val latency = (System.currentTimeMillis() - start).coerceAtLeast(1L)
+                ApiHealthStatus(false, latency, e.message ?: "নেটওয়ার্ক ত্রুটি")
             }
+        }
+    }
+
+    suspend fun verifyConnection(): Result<Boolean> {
+        val status = pingConnection()
+        return if (status.isConnected) {
+            Result.success(true)
+        } else {
+            Result.failure(Exception(status.message))
         }
     }
 

@@ -56,7 +56,7 @@ async function runBackendTests() {
 
     assert.strictEqual(verRes.statusCode, 200);
     assert.strictEqual(verRes.body.success, true);
-    assert.strictEqual(verRes.body.data.latestVersion, '1.8.0');
+    assert.strictEqual(verRes.body.data.latestVersion, '1.9.0');
     assert(verRes.body.data.apkDownloadUrl.includes('.apk'));
     console.log('  [PASS] Version parity API returns correct contract.');
 
@@ -186,6 +186,21 @@ async function runBackendTests() {
     assert.strictEqual(importRes.statusCode, 200);
     assert.strictEqual(importRes.body.data.imported_clips, 2);
     console.log('  [PASS] Cloud backup import and deduplication verified.');
+
+    // 8. Test Gemini Health Ping (Phase 7)
+    console.log('\n8. Testing POST /api/gemini/ping...');
+    const pingRes = await request({
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/gemini/ping',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    }, { apiKey: 'AIzaSyExampleValidTestKey123' });
+    assert.strictEqual(pingRes.statusCode, 200);
+    assert.strictEqual(pingRes.body.data.connected, true);
+    assert.strictEqual(pingRes.body.data.model, 'gemini-1.5-flash');
+    assert(typeof pingRes.body.data.latency_ms === 'number');
+    console.log('  [PASS] Gemini API health check and latency ping verified.');
 
     console.log('\n=== ALL BACKEND API CONTRACT TESTS PASSED! ===');
   } finally {

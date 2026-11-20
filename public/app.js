@@ -676,9 +676,79 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (settingAutoPaste) settingAutoPaste.checked = s.autoPaste !== false;
       if (settingAlwaysOnTop) settingAlwaysOnTop.checked = s.alwaysOnTop !== false;
     }
+    pingGeminiStatus();
   }
 
   loadSettings();
+
+  async function pingGeminiStatus(apiKeyInput = null) {
+    const key = apiKeyInput !== null ? apiKeyInput : (settingApiKey?.value?.trim() || '');
+    const statusLed = document.getElementById('apiStatusLed');
+    const statusText = document.getElementById('apiKeyStatus');
+    const latencyText = document.getElementById('apiLatencyText');
+    const headerBadge = document.getElementById('headerGeminiBadge');
+
+    if (!key) {
+      if (statusLed) statusLed.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+      if (statusText) statusText.textContent = '⚪ API Key খালি (অনুবাদ নিষ্ক্রিয়)';
+      if (latencyText) latencyText.textContent = '--';
+      if (headerBadge) {
+        headerBadge.textContent = '⚪ Gemini Inactive';
+        headerBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono cursor-pointer';
+      }
+      return { connected: false };
+    }
+
+    if (statusLed) statusLed.className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping';
+    if (statusText) statusText.textContent = '🟡 কানেকশন যাচাই হচ্ছে...';
+
+    const start = Date.now();
+    try {
+      let isValid = false;
+      let latency = 0;
+      if (window.api?.validateApiKey) {
+        const res = await window.api.validateApiKey(key);
+        isValid = !!res.valid;
+        latency = Math.max(1, Date.now() - start);
+      } else {
+        const res = await fetch('/api/gemini/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: key })
+        });
+        const data = await res.json();
+        isValid = !!data?.data?.connected;
+        latency = data?.data?.latency_ms || Math.max(1, Date.now() - start);
+      }
+
+      if (isValid) {
+        if (statusLed) statusLed.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50';
+        if (statusText) statusText.textContent = '🟢 Gemini 1.5 Flash সক্রিয় ও প্রস্তুত (Active)';
+        if (latencyText) latencyText.textContent = `${latency}ms`;
+        if (headerBadge) {
+          headerBadge.textContent = `🟢 Gemini (${latency}ms)`;
+          headerBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono cursor-pointer transition hover:bg-emerald-500/30';
+        }
+        return { connected: true, latency };
+      } else {
+        throw new Error('API Key কাজ করছে না');
+      }
+    } catch (err) {
+      const latency = Math.max(1, Date.now() - start);
+      if (statusLed) statusLed.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+      if (statusText) statusText.textContent = '🔴 কানেকশন ত্রুটি: ' + (err.message || 'ভুল কী');
+      if (latencyText) latencyText.textContent = `${latency}ms`;
+      if (headerBadge) {
+        headerBadge.textContent = '🔴 Gemini Error';
+        headerBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-mono cursor-pointer';
+      }
+      return { connected: false, error: err.message };
+    }
+  }
+
+  document.getElementById('headerGeminiBadge')?.addEventListener('click', () => {
+    pingGeminiStatus();
+  });
 
   document.getElementById('btnTestApiKey')?.addEventListener('click', async () => {
     const key = settingApiKey.value.trim();
@@ -688,12 +758,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const btn = document.getElementById('btnTestApiKey');
     btn.textContent = 'যাচাই হচ্ছে...';
-    const res = await window.api?.validateApiKey ? await window.api.validateApiKey(key) : { valid: key.length > 20 };
+    const status = await pingGeminiStatus(key);
     btn.textContent = 'টেস্ট করুন';
-    if (res.valid) {
-      alert('সফল! Gemini API সংযোগ সফল হয়েছে। 🟢');
+    if (status.connected) {
+      alert(`সফল! Gemini API সংযোগ সক্রিয়। 🟢 (ল্যাটেন্সি: ${status.latency}ms)`);
     } else {
-      alert('ব্যর্থ: ' + (res.error || 'ভুল বা নিষ্ক্রিয় API Key'));
+      alert('ব্যর্থ: ' + (status.error || 'ভুল বা নিষ্ক্রিয় API Key'));
     }
   });
 

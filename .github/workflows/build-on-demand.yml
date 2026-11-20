@@ -53,13 +53,13 @@ jobs:
       - name: Prepare Android Output
         run: |
           mkdir -p build-output
-          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/app-v1.8.0-build11-android.apk \;
+          find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} build-output/app-v1.9.0-build12-android.apk \;
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-v1.8.0-build11-android.apk
-          path: build-output/app-v1.8.0-build11-android.apk
+          name: app-v1.9.0-build12-android.apk
+          path: build-output/app-v1.9.0-build12-android.apk
           retention-days: 30
 
   # 2. Windows App Build

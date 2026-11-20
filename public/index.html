@@ -12,7 +12,8 @@
     <div class="flex items-center gap-2 drag-region">
       <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></div>
       <span class="font-semibold text-sm tracking-wide text-slate-200">Smart Voice Keyboard</span>
-      <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v1.8.0</span>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v1.9.0</span>
+      <span id="headerGeminiBadge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono cursor-pointer transition hover:bg-emerald-500/30" title="Gemini AI কানেকশন স্ট্যাটাস">🟢 Gemini 1.5</span>
     </div>
     <div class="flex items-center gap-2 no-drag">
       <button id="btnMinimize" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white" title="Minimize">
@@ -236,6 +237,13 @@
             <button id="btnTestApiKey" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded text-slate-200">
               টেস্ট করুন
             </button>
+          </div>
+          <div id="apiKeyStatusCard" class="mt-2 p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+              <span id="apiStatusLed" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
+              <span id="apiKeyStatus" class="text-slate-300">🟢 Gemini 1.5 Flash সক্রিয় ও কানেক্টেড</span>
+            </div>
+            <span id="apiLatencyText" class="font-mono text-emerald-400 text-[11px]">32ms</span>
           </div>
           <p class="text-[11px] text-slate-400">বিনামূল্যে API কী সংগ্রহ করুন: <a href="https://aistudio.google.com/" target="_blank" class="text-emerald-400 underline">Google AI Studio</a></p>
         </div>
