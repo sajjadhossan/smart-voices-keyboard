@@ -36,6 +36,7 @@ import com.smartvoices.keyboard.phonetic.PhoneticEngine
 import com.smartvoices.keyboard.ui.SettingsActivity
 import com.smartvoices.keyboard.ui.VoiceInputDialogActivity
 import com.smartvoices.keyboard.ui.VoicePermissionActivity
+import com.smartvoices.keyboard.voice.GeminiAudioRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,7 +112,9 @@ class SmartKeyboardService : InputMethodService() {
     private var activeView = ActiveViewMode.KEYBOARD
     private var isShifted = false
     private var isListening = false
+    private var isGeminiVoiceActive = false
     private var speechRecognizer: SpeechRecognizer? = null
+    private lateinit var geminiAudioRecorder: GeminiAudioRecorder
 
     private lateinit var clipboardDb: ClipboardDbHelper
     private lateinit var geminiService: GeminiService
@@ -176,6 +179,7 @@ class SmartKeyboardService : InputMethodService() {
         super.onCreate()
         prefs = getSharedPreferences("smart_keyboard_prefs", Context.MODE_PRIVATE)
         clipboardDb = ClipboardDbHelper(this)
+        geminiAudioRecorder = GeminiAudioRecorder(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
         vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1059,10 +1063,10 @@ class SmartKeyboardService : InputMethodService() {
     }
 
     /**
-     * Voice Dictation Handling with "শুনতেছি..." Status & Dual-Engine Fallback
+     * Voice Dictation Handling with "🔴 শুনতেছি..." Live Waveform & Dual-Engine Fallback
      */
     private fun toggleVoiceInput() {
-        if (isListening) {
+        if (isListening || isGeminiVoiceActive) {
             stopVoiceListening()
         } else {
             val hasPermission = ContextCompat.checkSelfPermission(
@@ -1079,7 +1083,47 @@ class SmartKeyboardService : InputMethodService() {
                 return
             }
 
-            startVoiceListening()
+            val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+            if (apiKey.isNotBlank()) {
+                startGeminiDirectVoice(apiKey)
+            } else {
+                startVoiceListening()
+            }
+        }
+    }
+
+    private fun startGeminiDirectVoice(apiKey: String) {
+        val started = geminiAudioRecorder.startRecording()
+        if (!started) {
+            Toast.makeText(this, "⚠️ মাইক্রোফোন সক্রিয় করা যায়নি", Toast.LENGTH_SHORT).show()
+            launchVoiceInputDialog()
+            return
+        }
+
+        isGeminiVoiceActive = true
+        isListening = true
+        updateMicButtonState(true, "🔴 শুনতেছি...")
+        Toast.makeText(this, "🎙️ শুনতেছি... কথা বলুন (শেষ হলে মাইকে ট্যাপ করুন)", Toast.LENGTH_SHORT).show()
+
+        geminiAudioRecorder.audioLevelListener = object : GeminiAudioRecorder.AudioLevelListener {
+            private var lastUpdate = 0L
+            override fun onAudioLevel(rmsDb: Float) {
+                val now = System.currentTimeMillis()
+                if (now - lastUpdate > 200) {
+                    lastUpdate = now
+                    val bars = when {
+                        rmsDb > 65 -> " ▃▅█"
+                        rmsDb > 52 -> " ▂▃▅"
+                        rmsDb > 38 -> " ▂▃ "
+                        else -> " ▂  "
+                    }
+                    mainHandler.post {
+                        if (isGeminiVoiceActive) {
+                            btnMic.text = "🔴 শুনতেছি$bars"
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1109,7 +1153,19 @@ class SmartKeyboardService : InputMethodService() {
                             }
 
                             override fun onBeginningOfSpeech() {}
-                            override fun onRmsChanged(rmsdB: Float) {}
+                            override fun onRmsChanged(rmsdB: Float) {
+                                val bars = when {
+                                    rmsdB > 7f -> " ▃▅█"
+                                    rmsdB > 4f -> " ▂▃▅"
+                                    rmsdB > 2f -> " ▂▃ "
+                                    else -> " ▂  "
+                                }
+                                mainHandler.post {
+                                    if (isListening && !isGeminiVoiceActive) {
+                                        btnMic.text = "🔴 শুনতেছি$bars"
+                                    }
+                                }
+                            }
                             override fun onBufferReceived(buffer: ByteArray?) {}
 
                             override fun onEndOfSpeech() {
@@ -1203,6 +1259,39 @@ class SmartKeyboardService : InputMethodService() {
     }
 
     private fun stopVoiceListening() {
+        if (isGeminiVoiceActive) {
+            isGeminiVoiceActive = false
+            isListening = false
+            updateMicButtonState(true, "⏳ রূপান্তর হচ্ছে...")
+            geminiAudioRecorder.audioLevelListener = null
+
+            serviceScope.launch {
+                val wavBytes = geminiAudioRecorder.stopRecording()
+                val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+                val langMode = if (currentMode == TypingMode.ENGLISH) "en" else "bn"
+
+                val result = geminiAudioRecorder.transcribeWithGemini(wavBytes, apiKey, langMode)
+                result.onSuccess { transcribed ->
+                    mainHandler.post {
+                        updateMicButtonState(false, "🎙️")
+                        if (transcribed.isNotBlank()) {
+                            currentInputConnection?.commitText("$transcribed ", 1)
+                            Toast.makeText(this@SmartKeyboardService, "✅ লিখা সম্পন্ন", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this@SmartKeyboardService, "কোনো শব্দ শনাক্ত হয়নি", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }.onFailure { err ->
+                    mainHandler.post {
+                        updateMicButtonState(false, "🎙️")
+                        Toast.makeText(this@SmartKeyboardService, "ত্রুটি: ${err.message}", Toast.LENGTH_LONG).show()
+                        launchVoiceInputDialog()
+                    }
+                }
+            }
+            return
+        }
+
         isListening = false
         updateMicButtonState(false, "🎙️")
         try {
@@ -1235,6 +1324,11 @@ class SmartKeyboardService : InputMethodService() {
         try {
             unregisterReceiver(keyboardReceiver)
         } catch (e: Exception) {}
+        if (isGeminiVoiceActive) {
+            try {
+                geminiAudioRecorder.stopRecording()
+            } catch (e: Exception) {}
+        }
         speechRecognizer?.destroy()
     }
 }

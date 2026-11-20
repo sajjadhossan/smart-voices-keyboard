@@ -53,14 +53,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.2.0',
+    latestVersion: '1.3.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.2.0-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.2.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.2.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.3.0-build4-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.3.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.3.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.২.০: ব্যাকস্পেস হোল্ড অটো-রিপিট ডিলিট, ডুয়াল স্পিচ ইঞ্জিন "শুনতেছি..." ফিডব্যাক, বাংলিশ কম্পোজিং প্রিভিউ সাজেশন ফিক্স, এবং জেমিনাই এআই কানেকশন গ্রিন সিগন্যাল।',
-      en: 'New version 1.2.0: Auto-repeat backspace hold delete, dual speech engine with "Listening..." feedback, Banglish composing preview suggestion fix, and Gemini AI connection green signal badge.'
+      bn: 'নতুন সংস্করণ ১.৩.০: জেমিনাই ডিরেক্ট অডিও রেকর্ডিং এসটিটি ও লাইভ আরএমএস ওয়েভফর্ম বার, নো-গুগল-সার্ভিসেস ওএম ডিভাইসেও ১০০% কাজ করবে, অটো-পাংকচুয়েশন ও রিয়েল-টাইম কীবোর্ড কমিট।',
+      en: 'New version 1.3.0: Direct Gemini Audio Recording STT engine with live RMS visualizer, 100% compatibility on non-GMS OEM devices, auto-punctuation and real-time IME text commit.'
     },
     forceUpdate: false
   }

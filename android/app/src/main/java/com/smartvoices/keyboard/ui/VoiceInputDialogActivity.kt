@@ -1,6 +1,7 @@
 package com.smartvoices.keyboard.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -17,6 +18,10 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.smartvoices.keyboard.voice.GeminiAudioRecorder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class VoiceInputDialogActivity : AppCompatActivity() {
 
@@ -28,6 +33,9 @@ class VoiceInputDialogActivity : AppCompatActivity() {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
+    private var geminiAudioRecorder: GeminiAudioRecorder? = null
+    private var isGeminiRecording = false
+    private val activityScope = CoroutineScope(Dispatchers.Main)
     private lateinit var tvStatus: TextView
     private lateinit var tvTranscript: TextView
     private lateinit var btnMicIcon: TextView
@@ -85,7 +93,7 @@ class VoiceInputDialogActivity : AppCompatActivity() {
                 setMargins(0, 16, 0, 16)
             }
             setOnClickListener {
-                if (isListening) {
+                if (isListening || isGeminiRecording) {
                     stopListening()
                 } else {
                     startListening()
@@ -198,12 +206,67 @@ class VoiceInputDialogActivity : AppCompatActivity() {
     }
 
     private fun startListening() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            tvStatus.text = "⚠️ স্পিচ রিকগনিশন সক্রিয় নয়"
+        stopListening()
+
+        val prefs = getSharedPreferences("smart_keyboard_prefs", Context.MODE_PRIVATE)
+        val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+
+        if (apiKey.isNotBlank()) {
+            startGeminiListening(apiKey)
+        } else {
+            startSystemSpeechRecognizer()
+        }
+    }
+
+    private fun startGeminiListening(apiKey: String) {
+        if (geminiAudioRecorder == null) {
+            geminiAudioRecorder = GeminiAudioRecorder(this)
+        }
+
+        val started = geminiAudioRecorder?.startRecording() ?: false
+        if (!started) {
+            tvStatus.text = "⚠️ মাইক্রোফোন সক্রিয় করা যায়নি"
+            tvStatus.setTextColor(Color.parseColor("#EF4444"))
+            startSystemSpeechRecognizer()
             return
         }
 
-        stopListening()
+        isGeminiRecording = true
+        isListening = true
+        tvStatus.text = "🎙️ শুনতেছি... কথা বলুন"
+        tvStatus.setTextColor(Color.parseColor("#10B981"))
+        btnMicIcon.background = GradientDrawable().apply {
+            setColor(Color.parseColor("#EF4444"))
+            shape = GradientDrawable.OVAL
+            setStroke(6, Color.parseColor("#FFFFFF"))
+        }
+
+        geminiAudioRecorder?.audioLevelListener = object : GeminiAudioRecorder.AudioLevelListener {
+            override fun onAudioLevel(rmsDb: Float) {
+                mainHandler.post {
+                    if (isGeminiRecording) {
+                        val stroke = when {
+                            rmsDb > 60 -> 12
+                            rmsDb > 45 -> 8
+                            else -> 4
+                        }
+                        btnMicIcon.background = GradientDrawable().apply {
+                            setColor(Color.parseColor("#EF4444"))
+                            shape = GradientDrawable.OVAL
+                            setStroke(stroke, Color.parseColor("#FFFFFF"))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startSystemSpeechRecognizer() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            tvStatus.text = "⚠️ স্পিচ রিকগনিশন সক্রিয় নয়। সেটিংসে Gemini API Key দিন।"
+            tvStatus.setTextColor(Color.parseColor("#EF4444"))
+            return
+        }
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
@@ -284,7 +347,52 @@ class VoiceInputDialogActivity : AppCompatActivity() {
     }
 
     private fun stopListening() {
+        if (isGeminiRecording) {
+            isGeminiRecording = false
+            isListening = false
+            tvStatus.text = "⏳ Gemini AI ট্রান্সক্রাইব করছে..."
+            tvStatus.setTextColor(Color.parseColor("#6366F1"))
+            geminiAudioRecorder?.audioLevelListener = null
+
+            val recorder = geminiAudioRecorder ?: return
+            activityScope.launch {
+                val wavBytes = recorder.stopRecording()
+                val prefs = getSharedPreferences("smart_keyboard_prefs", Context.MODE_PRIVATE)
+                val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+                val langMode = if (currentLang.startsWith("en")) "en" else "bn"
+
+                val result = recorder.transcribeWithGemini(wavBytes, apiKey, langMode)
+                result.onSuccess { text ->
+                    recognizedText = text
+                    tvTranscript.text = text
+                    tvTranscript.setTextColor(Color.parseColor("#F8FAFC"))
+                    tvStatus.text = "✅ সম্পন্ন হয়েছে!"
+                    tvStatus.setTextColor(Color.parseColor("#10B981"))
+                    btnMicIcon.background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#1E293B"))
+                        shape = GradientDrawable.OVAL
+                        setStroke(6, Color.parseColor("#10B981"))
+                    }
+                    mainHandler.postDelayed({ commitAndFinish() }, 400)
+                }.onFailure { err ->
+                    tvStatus.text = "ত্রুটি: ${err.message}"
+                    tvStatus.setTextColor(Color.parseColor("#EF4444"))
+                    btnMicIcon.background = GradientDrawable().apply {
+                        setColor(Color.parseColor("#1E293B"))
+                        shape = GradientDrawable.OVAL
+                        setStroke(6, Color.parseColor("#EF4444"))
+                    }
+                }
+            }
+            return
+        }
+
         isListening = false
+        btnMicIcon.background = GradientDrawable().apply {
+            setColor(Color.parseColor("#1E293B"))
+            shape = GradientDrawable.OVAL
+            setStroke(6, Color.parseColor("#10B981"))
+        }
         try {
             speechRecognizer?.stopListening()
             speechRecognizer?.destroy()
@@ -293,7 +401,9 @@ class VoiceInputDialogActivity : AppCompatActivity() {
     }
 
     private fun commitAndFinish() {
-        stopListening()
+        if (isGeminiRecording || isListening) {
+            stopListening()
+        }
         val textToCommit = tvTranscript.text.toString().trim()
         if (textToCommit.isNotBlank() && !textToCommit.startsWith("আপনি যা বলবেন")) {
             val resultIntent = Intent(ACTION_VOICE_RESULT).apply {
@@ -307,6 +417,13 @@ class VoiceInputDialogActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        stopListening()
+        if (isGeminiRecording) {
+            try {
+                geminiAudioRecorder?.stopRecording()
+            } catch (e: Exception) {}
+        }
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {}
     }
 }
