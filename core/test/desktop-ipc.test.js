@@ -75,6 +75,13 @@ async function testDesktopCore() {
   assert(typeof translator.executeVoiceCommand === 'function');
   console.log('  [OK] Gemini Client interface verified.');
 
+  // 5. Test Quick Mode & Direct Bangla (Phase 8)
+  console.log('\n5. Testing Quick Mode & Direct Bangla...');
+  const { convertDirectBangla, validateMode, MODES } = require('../desktop/quick-mode-engine');
+  assert.strictEqual(convertDirectBangla('k'), 'ক');
+  assert.strictEqual(validateMode('banglish'), MODES.BANGLISH);
+  console.log('  [OK] Quick Mode & Direct Bangla verified.');
+
   console.log('\n=== ALL DESKTOP CORE TESTS PASSED! ===');
 }
 

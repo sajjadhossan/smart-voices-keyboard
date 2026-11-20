@@ -57,5 +57,10 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('window:hide'),
 
   minimizeWindow: () => 
-    ipcRenderer.invoke('window:minimize')
+    ipcRenderer.invoke('window:minimize'),
+
+  // Desktop Mode Switching Events (Phase 8)
+  onSwitchMode: (callback) => {
+    ipcRenderer.on('switch:mode', (_e, mode) => callback(mode));
+  }
 });

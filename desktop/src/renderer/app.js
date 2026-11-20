@@ -3,23 +3,55 @@
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Navigation Tabs
+  // Navigation Tabs & Quick Mode Switcher
   const navButtons = document.querySelectorAll('.nav-btn');
   const tabContents = document.querySelectorAll('.tab-content');
+
+  function switchToTab(targetTab) {
+    navButtons.forEach(b => b.classList.remove('active'));
+    tabContents.forEach(tc => tc.classList.remove('active'));
+    const btn = document.querySelector(`.nav-btn[data-tab="${targetTab}"]`);
+    if (btn) btn.classList.add('active');
+    const tabEl = document.getElementById(targetTab);
+    if (tabEl) tabEl.classList.add('active');
+
+    if (targetTab === 'tab-clipboard') {
+      loadClipboardItems();
+      document.getElementById('clipboardSearchInput')?.focus();
+    } else if (targetTab === 'tab-voice') {
+      document.getElementById('voiceResultArea')?.focus();
+    } else if (targetTab === 'tab-phonetic') {
+      document.getElementById('phoneticInput')?.focus();
+    } else if (targetTab === 'tab-english') {
+      document.getElementById('englishInput')?.focus();
+    } else if (targetTab === 'tab-bangla') {
+      document.getElementById('banglaInput')?.focus();
+    }
+  }
 
   navButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       const targetTab = btn.getAttribute('data-tab');
-      navButtons.forEach(b => b.classList.remove('active'));
-      tabContents.forEach(tc => tc.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(targetTab)?.classList.add('active');
-
-      if (targetTab === 'tab-clipboard') {
-        loadClipboardItems();
-      }
+      switchToTab(targetTab);
     });
   });
+
+  // Global hotkey-driven mode switching from electron main
+  const modeToTabMap = {
+    'voice': 'tab-voice',
+    'banglish': 'tab-phonetic',
+    'english': 'tab-english',
+    'bangla': 'tab-bangla',
+    'clipboard': 'tab-clipboard',
+    'settings': 'tab-settings'
+  };
+
+  if (window.api?.onSwitchMode) {
+    window.api.onSwitchMode((mode) => {
+      const tabId = modeToTabMap[mode] || 'tab-voice';
+      switchToTab(tabId);
+    });
+  }
 
   // Window Controls
   document.getElementById('btnMinimize')?.addEventListener('click', () => {
@@ -582,6 +614,102 @@ document.addEventListener('DOMContentLoaded', async () => {
       await window.api.injectTextToActiveWindow(text);
     }
   });
+
+  // -------------------------------------------------------------
+  // TAB 3B & 3C: English & Pure Bangla Direct Typist (Phase 8)
+  // -------------------------------------------------------------
+  const englishInput = document.getElementById('englishInput');
+  const banglaInput = document.getElementById('banglaInput');
+
+  const DIRECT_BANGLA_MAP = {
+    'k': 'ক', 'K': 'খ', 'g': 'গ', 'G': 'ঘ', 'N': 'ঙ',
+    'c': 'চ', 'C': 'ছ', 'j': 'জ', 'J': 'ঝ',
+    't': 'ট', 'T': 'ঠ', 'd': 'ড', 'D': 'ঢ',
+    'r': 'র', 'R': 'ড়', 'l': 'ল', 'L': 'ল',
+    'p': 'প', 'P': 'ফ', 'b': 'ব', 'B': 'ভ', 'm': 'ম',
+    's': 'স', 'S': 'শ', 'h': 'হ', 'H': 'ঃ',
+    'a': 'া', 'A': 'আ', 'i': 'ি', 'I': 'ী',
+    'u': 'ু', 'U': 'ূ', 'e': 'ে', 'E': 'ৈ', 'o': 'ো', 'O': 'ৌ'
+  };
+
+  // English Mode
+  englishInput?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = englishInput.value.trim();
+      if (text && window.api) {
+        await window.api.injectTextToActiveWindow(text);
+      }
+    }
+  });
+
+  document.getElementById('btnInjectEnglishToApp')?.addEventListener('click', async () => {
+    const text = englishInput?.value.trim();
+    if (text && window.api) {
+      await window.api.injectTextToActiveWindow(text);
+    }
+  });
+
+  document.getElementById('btnCopyEnglish')?.addEventListener('click', () => {
+    if (englishInput?.value) {
+      navigator.clipboard.writeText(englishInput.value);
+    }
+  });
+
+  document.getElementById('btnClearEnglish')?.addEventListener('click', () => {
+    if (englishInput) {
+      englishInput.value = '';
+      englishInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+
+  // Pure Bangla Mode
+  banglaInput?.addEventListener('input', () => {
+    const val = banglaInput.value;
+    let out = '';
+    for (let i = 0; i < val.length; i++) {
+      const ch = val[i];
+      out += DIRECT_BANGLA_MAP[ch] || ch;
+    }
+    if (out !== val) {
+      const start = banglaInput.selectionStart;
+      banglaInput.value = out;
+      banglaInput.setSelectionRange(start, start);
+    }
+  });
+
+  banglaInput?.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = banglaInput.value.trim();
+      if (text && window.api) {
+        await window.api.injectTextToActiveWindow(text);
+      }
+    }
+  });
+
+  document.getElementById('btnInjectBanglaToApp')?.addEventListener('click', async () => {
+    const text = banglaInput?.value.trim();
+    if (text && window.api) {
+      await window.api.injectTextToActiveWindow(text);
+    }
+  });
+
+  document.getElementById('btnCopyBangla')?.addEventListener('click', () => {
+    if (banglaInput?.value) {
+      navigator.clipboard.writeText(banglaInput.value);
+    }
+  });
+
+  document.getElementById('btnClearBangla')?.addEventListener('click', () => {
+    if (banglaInput) {
+      banglaInput.value = '';
+      banglaInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+
+  attachHoldToDelete(document.getElementById('btnDelWordEnglish'), englishInput);
+  attachHoldToDelete(document.getElementById('btnDelWordBangla'), banglaInput);
 
   // -------------------------------------------------------------
   // TAB 4: Unlimited Clipboard Manager

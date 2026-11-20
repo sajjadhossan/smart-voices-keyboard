@@ -12,7 +12,7 @@
     <div class="flex items-center gap-2 drag-region">
       <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></div>
       <span class="font-semibold text-sm tracking-wide text-slate-200">Smart Voice Keyboard</span>
-      <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v1.9.0</span>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v2.0.0</span>
       <span id="headerGeminiBadge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono cursor-pointer transition hover:bg-emerald-500/30" title="Gemini AI কানেকশন স্ট্যাটাস">🟢 Gemini 1.5</span>
     </div>
     <div class="flex items-center gap-2 no-drag">
@@ -25,27 +25,35 @@
     </div>
   </header>
 
-  <!-- Navigation Bar -->
-  <nav class="flex border-b border-slate-800 bg-slate-900/60 px-2 py-1 gap-1 text-xs font-medium">
-    <button class="nav-btn active" data-tab="tab-voice">
+  <!-- Quick Floating Mode Switcher Bar (User Request: Voice, Banglish, English, Bangla, Clipboard, Settings) -->
+  <nav class="flex flex-wrap border-b border-slate-800 bg-slate-900/80 px-2 py-1 gap-1 text-xs font-medium">
+    <button class="nav-btn active" data-tab="tab-voice" title="শর্টকাট: Ctrl+Alt+1">
       <span>🎙️</span>
-      <span>ভয়েস টাইপিং (Voice)</span>
+      <span>ভয়েস (Voice)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-phonetic" title="শর্টকাট: Ctrl+Alt+2">
+      <span>⌨️</span>
+      <span>বাংলিশ (Phonetic)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-english" title="শর্টকাট: Ctrl+Alt+3">
+      <span>🇺🇸</span>
+      <span>ইংরেজি (English)</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-bangla" title="শর্টকাট: Ctrl+Alt+4">
+      <span>🇧🇩</span>
+      <span>বাংলা (Bangla)</span>
     </button>
     <button class="nav-btn" data-tab="tab-translate">
       <span>🌐</span>
-      <span>অনুবাদ (Translate)</span>
+      <span>অনুবাদ</span>
     </button>
-    <button class="nav-btn" data-tab="tab-phonetic">
-      <span>⌨️</span>
-      <span>বাংলিশ টু বাংলা (Phonetic)</span>
-    </button>
-    <button class="nav-btn" data-tab="tab-clipboard">
+    <button class="nav-btn" data-tab="tab-clipboard" title="শর্টকাট: Ctrl+Alt+V">
       <span>📋</span>
-      <span>ক্লিপবোর্ড (Clipboard)</span>
+      <span>ক্লিপবোর্ড</span>
     </button>
-    <button class="nav-btn" data-tab="tab-settings">
+    <button class="nav-btn" data-tab="tab-settings" title="শর্টকাট: Ctrl+Alt+S">
       <span>⚙️</span>
-      <span>সেটিংস (Settings)</span>
+      <span>সেটিংস</span>
     </button>
   </nav>
 
@@ -193,6 +201,62 @@
           🚀 সক্রিয় অ্যাপে টাইপ করুন (Paste into App)
         </button>
         <button id="btnCopyPhonetic" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs">
+          কপি করুন (Copy)
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 3B: English QWERTY Typing Mode (Phase 8) -->
+    <section id="tab-english" class="tab-content space-y-4">
+      <div class="p-3 bg-slate-800/40 border border-slate-800 rounded-lg text-xs text-slate-300 leading-relaxed flex justify-between items-center">
+        <span><strong>ইংরেজি মোড (English QWERTY):</strong> কীবোর্ডে যা লিখবেন তা খাঁটি ইংরেজিতে থাকবে এবং এন্টার চাপলেই সক্রিয় অ্যাপে পেস্ট হবে।</span>
+        <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">Ctrl+Alt+3</span>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
+          <label>ইংরেজি লিখুন (Type English):</label>
+          <div class="flex gap-2">
+            <button id="btnDelWordEnglish" class="hover:text-amber-400" title="শব্দ মুছুন (Word Delete)">Word ⌫</button>
+            <button id="btnClearEnglish" class="hover:text-slate-200">Clear</button>
+          </div>
+        </div>
+        <textarea id="englishInput" rows="4" class="w-full bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-emerald-500" placeholder="Type in English here... Press Enter or click button to type into active app."></textarea>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="btnInjectEnglishToApp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-xs">
+          🚀 সক্রিয় উইন্ডোতে টাইপ করুন (Paste into App)
+        </button>
+        <button id="btnCopyEnglish" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs">
+          কপি করুন (Copy)
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 3C: Pure Unicode Bangla Typing Mode (Phase 8) -->
+    <section id="tab-bangla" class="tab-content space-y-4">
+      <div class="p-3 bg-slate-800/40 border border-slate-800 rounded-lg text-xs text-slate-300 leading-relaxed flex justify-between items-center">
+        <span><strong>খাঁটি বাংলা মোড (Pure Bangla):</strong> কিবোর্ডের অক্ষর সরাসরি বাংলা ইউনিকোড অক্ষরে পরিবর্তিত হবে।</span>
+        <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">Ctrl+Alt+4</span>
+      </div>
+
+      <div class="space-y-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
+          <label>সরাসরি বাংলা (Direct Unicode Bangla):</label>
+          <div class="flex gap-2">
+            <button id="btnDelWordBangla" class="hover:text-amber-400" title="শব্দ মুছুন (Word Delete)">Word ⌫</button>
+            <button id="btnClearBangla" class="hover:text-slate-200">Clear</button>
+          </div>
+        </div>
+        <textarea id="banglaInput" rows="4" class="w-full bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-emerald-500" placeholder="এখানে সরাসরি বাংলায় টাইপ হবে..."></textarea>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="btnInjectBanglaToApp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-xs">
+          🚀 সক্রিয় উইন্ডোতে টাইপ করুন (Paste into App)
+        </button>
+        <button id="btnCopyBangla" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs">
           কপি করুন (Copy)
         </button>
       </div>

@@ -54,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '1.9.0',
+    latestVersion: '2.0.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v1.9.0-build12-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.9.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v1.9.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v2.0.0-build13-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.0.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.0.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'নতুন সংস্করণ ১.৯.০ (ফেজ ৭): লাইভ জেমিনি এআই কানেকশন মনিটর (গ্রিন সিগন্যাল ও ল্যাটেন্সি পিং) এবং প্রিসিশন সাজেশন রিপ্লেসমেন্ট ইঞ্জিন — কীবোর্ড ও সেটিংসে গ্রিন সিগন্যাল ইন্ডিকেটর এবং সাজেশন চিপে ট্যাপ করলে ডুপ্লিকেশন ছাড়া নিখুঁত শব্দ প্রতিস্থাপন।',
-      en: 'New version 1.9.0 (Phase 7): Live Gemini AI Connection Monitor (Green Signal + Latency Ping) and Precision Suggestion Chip Replacement Engine — dynamic API status indicator across Android, Desktop & Web with zero-duplication suggestion tap.'
+      bn: 'মেজর রিলিজ ২.০.০ (ফেজ ৮): মাল্টি-প্ল্যাটফর্ম ফ্লোটিং বার ও গ্লোবাল হটকি মোড সুইচার — উইন্ডোজ ও ম্যাকবুকে স্পটলাইট পপআপে ভয়েস, বাংলিশ, ইংরেজি এবং বাংলা সরাসরি টাইপিং ও পেস্ট, ক্লিপবোর্ড পিনিং এবং গ্লোবাল হটকি (Ctrl+Alt+1..4/V/S)।',
+      en: 'Major Release 2.0.0 (Phase 8): Multi-Platform Floating Bar & Global Hotkey Mode Switcher — desktop spotlight popup with direct Voice, Banglish, English, and Bangla typist modes, clipboard pinning, and global hotkeys.'
     },
     forceUpdate: false
   }

@@ -160,11 +160,34 @@ function registerGlobalHotkeys() {
         mainWindow.show();
         mainWindow.focus();
         mainWindow.webContents.send('route:action', 'clipboard');
+        mainWindow.webContents.send('switch:mode', 'clipboard');
       });
     } catch (e) {
       console.warn('Failed to register clipboard hotkey:', e);
     }
   }
+
+  // Phase 8: Quick Mode Switcher Hotkeys (1: Voice, 2: Banglish, 3: English, 4: Bangla, S: Settings)
+  const prefix = isMac ? 'Command+Alt+' : 'Control+Alt+';
+  const quickModes = [
+    { key: prefix + '1', mode: 'voice' },
+    { key: prefix + '2', mode: 'banglish' },
+    { key: prefix + '3', mode: 'english' },
+    { key: prefix + '4', mode: 'bangla' },
+    { key: prefix + 'S', mode: 'settings' }
+  ];
+
+  quickModes.forEach(({ key, mode }) => {
+    try {
+      globalShortcut.register(key, () => {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('switch:mode', mode);
+      });
+    } catch (e) {
+      console.warn(`Failed to register hotkey ${key} for mode ${mode}:`, e);
+    }
+  });
 }
 
 // Background Clipboard Watcher

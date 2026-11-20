@@ -1,6 +1,6 @@
 {
   "name": "smart-voices-keyboard",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "description": "Cross-platform voice keyboard application with free open-source STT, Gemini API translation, unlimited clipboard, and Bangla/English/Banglish typing for Android, Windows, and macOS.",
   "author": "Sajjad Hossan",
   "license": "MIT",
@@ -25,8 +25,9 @@
     "test:backup": "node --test core/test/backup-crypto.test.js",
     "test:gesture": "node --test core/test/gesture-engine.test.js",
     "test:replacement": "node --test core/test/prediction-replacement.test.js",
+    "test:quickmode": "node --test core/test/quick-mode-engine.test.js",
     "test:backend": "node backend/test/server.test.js",
-    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:livetranslate && npm run test:prediction && npm run test:theme && npm run test:autopunctuation && npm run test:backup && npm run test:gesture && npm run test:replacement && npm run test:desktop && npm run test:backend"
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:livetranslate && npm run test:prediction && npm run test:theme && npm run test:autopunctuation && npm run test:backup && npm run test:gesture && npm run test:replacement && npm run test:quickmode && npm run test:desktop && npm run test:backend"
   },
   "dependencies": {
     "dotenv": "^16.4.7"

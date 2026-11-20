@@ -65,6 +65,10 @@ A modern, commercial-grade, cross-platform voice keyboard application for **Andr
     - Live Gemini 1.5 Flash API health monitor with green signal indicator, status diagnostics, and latency measurement across Mobile, Desktop, and Web.
     - Precision suggestion chip replacement engine eliminating word and character duplication when tapping suggestions in English, Bangla, and Banglish.
 
+13. **🪟 Desktop Floating Spotlight Bar & 4-Mode Typist (Phase 8, v2.0.0 Major Milestone)**:
+    - Desktop floating popup switcher with 4 direct input modes: Voice (`Ctrl+Alt+1`), Banglish (`Ctrl+Alt+2`), English QWERTY (`Ctrl+Alt+3`), and Pure Unicode Bangla (`Ctrl+Alt+4`), plus Clipboard (`Ctrl+Alt+V`) and Settings (`Ctrl+Alt+S`).
+    - Instant text injection into active windows (Word, Notepad, Chrome, VS Code, WhatsApp) on `Enter`.
+
 ---
 
 ## 🏗️ Project Architecture
