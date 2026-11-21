@@ -45,37 +45,55 @@ object PredictionEngine {
         "পরিক্ষা" to "পরীক্ষা",
         "পাখি" to "পাখি",
         "পানি" to "পানি",
-        "বাংঙ্গালী" to "বাঙালি"
+        "বাংঙ্গালী" to "বাঙালি",
+        "আসি" to "আছি",
+        "জানি" to "জানি",
+        "করবো" to "করব",
+        "কিসু" to "কিছু",
+        "আসিতেছে" to "আসছে",
+        "হইসে" to "হয়েছে"
+    )
+
+    // Bangla Orthographic & Phonetic Alternates (যেমন: ত ↔ ট, থ ↔ ঠ, দ ↔ ড, ধ ↔ ঢ, স ↔ শ ↔ ষ, ন ↔ ণ, ব ↔ ভ, র ↔ ড়)
+    private val banglaCharAlternates = mapOf(
+        'ত' to listOf('ট'),
+        'ট' to listOf('ত'),
+        'থ' to listOf('ঠ'),
+        'ঠ' to listOf('থ'),
+        'দ' to listOf('ড'),
+        'ড' to listOf('দ'),
+        'ধ' to listOf('ঢ'),
+        'ঢ' to listOf('ধ'),
+        'শ' to listOf('ষ', 'স'),
+        'ষ' to listOf('শ', 'স'),
+        'স' to listOf('শ', 'ষ'),
+        'ন' to listOf('ণ'),
+        'ণ' to listOf('ন'),
+        'ব' to listOf('ভ'),
+        'ভ' to listOf('ব'),
+        'র' to listOf('ড়', 'ঢ়'),
+        'ড়' to listOf('র'),
+        'ঢ়' to listOf('র'),
+        'ক' to listOf('খ'),
+        'খ' to listOf('ক'),
+        'গ' to listOf('ঘ'),
+        'ঘ' to listOf('গ'),
+        'জ' to listOf('য'),
+        'য' to listOf('জ')
     )
 
     // Emoji Prediction mappings
     private val emojiMap = mapOf(
-        "happy" to "😊", "খুশি" to "😊",
-        "love" to "❤️", "ভালোবাসা" to "❤️",
-        "congrats" to "🎉", "অভিনন্দন" to "🎉",
-        "thanks" to "🙏", "ধন্যবাদ" to "🙏",
-        "fire" to "🔥", "দারুণ" to "🔥",
-        "cool" to "😎", "সুন্দর" to "👍",
-        "sad" to "😢", "দুঃখিত" to "😔",
-        "laugh" to "😂", "হাসি" to "😂"
-    )
-
-    // High-frequency English words dictionary
-    private val englishDictionary = listOf(
-        "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
-        "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
-        "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
-        "or", "an", "will", "my", "one", "all", "would", "there", "their", "what",
-        "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
-        "when", "make", "can", "like", "time", "no", "just", "him", "know", "take",
-        "people", "into", "year", "your", "good", "some", "could", "them", "see", "other",
-        "than", "then", "now", "look", "only", "come", "its", "over", "think", "also",
-        "back", "after", "use", "two", "how", "our", "work", "first", "well", "way",
-        "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
-        "hello", "thanks", "thank", "please", "morning", "night", "welcome", "happy",
-        "meeting", "message", "important", "problem", "solution", "project", "awesome",
-        "tomorrow", "yesterday", "tonight", "today", "friend", "family", "office", "business",
-        "call", "email", "send", "receive", "confirm", "schedule", "update", "document"
+        "happy" to "😊", "খুশি" to "😊", "আনন্দ" to "😄",
+        "love" to "❤️", "ভালোবাসা" to "❤️", "প্রেম" to "💖",
+        "congrats" to "🎉", "অভিনন্দন" to "🎉", "মোবারক" to "🎊",
+        "thanks" to "🙏", "ধন্যবাদ" to "🙏", "শুকরিয়া" to "🤲",
+        "fire" to "🔥", "দারুণ" to "🔥", "অসাধারণ" to "🔥",
+        "cool" to "😎", "সুন্দর" to "👍", "সেরা" to "👌",
+        "sad" to "😢", "দুঃখিত" to "😔", "কষ্ট" to "🥺",
+        "laugh" to "😂", "হাসি" to "😂", "মজা" to "🤣",
+        "food" to "🍔", "খাবার" to "🍲", "ভাত" to "🍚", "চা" to "☕",
+        "good" to "👍", "ভালো" to "👍", "মিটিং" to "📅", "টাকা" to "💰"
     )
 
     // English Bigram & Trigram Associations
@@ -124,12 +142,45 @@ object PredictionEngine {
         "এখন" to listOf("কোথায়", "আছো", "যাবো", "করছি", "না")
     )
 
-    // High-frequency Bangla Vocabulary for prefix completion
+    // Comprehensive High-Frequency Bangla Vocabulary & Compounds
     private val banglaVocabulary = listOf(
-        "বাংলাদেশ", "ধন্যবাদ", "ভালোবাসা", "স্বাগতম", "অভিনন্দন", "শুভকামনা",
-        "প্রয়োজন", "সমস্যা", "সমাধান", "যোগাযোগ", "পরিবার", "বিদ্যালয়", "অফিস",
-        "গুরুত্বপূর্ণ", "সহজ", "কঠিন", "দ্রুত", "ধীরে", "অনুগ্রহ", "অনুরোধ",
-        "প্রতিদিন", "সাধারণ", "বিশেষ", "বর্তমান", "ভবিষ্যৎ", "সম্পর্ক", "বন্ধু"
+        // চাল & সম্পর্কিত শব্দসমূহ
+        "চাল", "চালতা", "চালাক", "চালাকি", "চালানো", "চালিয়ে", "চালচলন", "চালু", "চালডাল", "চালের", "চালাতে", "চালক",
+        // ত & ট সম্পর্কিত ও বিকল্প রূপ
+        "তা", "টা", "তার", "তাদের", "তাহলে", "তাই", "তাজা", "তাল", "তারিখ", "তাড়াতাড়ি", "তাপমাত্রা", "তাড়াহুড়ো",
+        "টাকা", "টাকায়", "টাইম", "টাকার", "টাকাটা", "টুকরো", "টানা", "টাটকা", "টেলিফোন", "টেকনিক্যাল", "টেস্ট",
+        // সাধারণ দৈনন্দিন শব্দ
+        "বাংলাদেশ", "বাঙালি", "বাংলা", "বাণিজ্য", "ভালোবাসা", "ভালো", "ভালোই", "ভালোভাবে", "স্বাগতম", "অভিনন্দন", "শুভকামনা",
+        "ধন্যবাদ", "ধন্যবাদ ভাই", "প্রয়োজন", "সমস্যা", "সমাধান", "যোগাযোগ", "পরিবার", "বিদ্যালয়", "অফিস", "ব্যবসা",
+        "গুরুত্বপূর্ণ", "সহজ", "কঠিন", "দ্রুত", "ধীরে", "অনুগ্রহ", "অনুরোধ", "প্রতিদিন", "সাধারণ", "বিশেষ",
+        "বর্তমান", "ভবিষ্যৎ", "সম্পর্ক", "বন্ধু", "ভাই", "আপু", "বোন", "বন্ধুগণ", "শ্রদ্ধেয়", "সম্মানিত",
+        "খবর", "কেমন", "কোথায়", "কখন", "কীভাবে", "কেন", "কার", "কাদের", "সবাই", "সবাইকে",
+        "সুন্দর", "চমৎকার", "অপূর্ব", "অসাধারণ", "অনবদ্য", "বিশ্বাস", "আস্থা", "নিরাপত্তা", "সুরক্ষা",
+        "কথা", "বার্তা", "মেসেজ", "ইমেইল", "ফোন", "কল", "মিটিং", "কাজ", "কর্ম", "দায়িত্ব",
+        "আজকে", "কালকে", "গতকাল", "আগামীকাল", "পরশু", "সকাল", "দুপুর", "বিকাল", "সন্ধ্যা", "রাত",
+        "সময়", "ঘণ্টা", "মিনিট", "সেকেন্ড", "বছর", "মাস", "সপ্তাহ", "তারিখ", "দিন", "ছুটি",
+        "শহর", "গ্রাম", "দেশ", "বিদেশ", "রাস্তা", "ঘাট", "গাড়ি", "বাস", "ট্রেন", "বিমান",
+        "টাকা", "পয়সা", "হিসাব", "নিকাশ", "লাভ", "ক্ষতি", "দোকান", "বাজার", "কেনাকাটা", "বিক্রি",
+        "পড়াশোনা", "বই", "খাতা", "কলম", "জ্ঞান", "বিজ্ঞান", "প্রযুক্তি", "মোবাইল", "কম্পিউটার", "ইন্টারনেট"
+    )
+
+    // Comprehensive High-frequency English Vocabulary
+    private val englishDictionary = listOf(
+        "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
+        "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
+        "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
+        "or", "an", "will", "my", "one", "all", "would", "there", "their", "what",
+        "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+        "when", "make", "can", "like", "time", "no", "just", "him", "know", "take",
+        "people", "into", "year", "your", "good", "some", "could", "them", "see", "other",
+        "than", "then", "now", "look", "only", "come", "its", "over", "think", "also",
+        "back", "after", "use", "two", "how", "our", "work", "first", "well", "way",
+        "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
+        "hello", "thanks", "thank", "please", "morning", "night", "welcome", "happy",
+        "connect", "continue", "contact", "control", "condition", "confident", "confirm",
+        "meeting", "message", "important", "problem", "solution", "project", "awesome",
+        "tomorrow", "yesterday", "tonight", "today", "friend", "family", "office", "business",
+        "call", "email", "send", "receive", "schedule", "update", "document", "keyboard"
     )
 
     /**
@@ -144,6 +195,18 @@ object PredictionEngine {
     }
 
     /**
+     * Generate phonetic / orthographic alternate word candidates for Bengali
+     * যেমন: 'তা' ইনপুট দিলে অল্টারনেট হিসেবে 'টা' জেনারেট করে
+     */
+    private fun getBanglaAlternatePrefixes(word: String): List<String> {
+        if (word.isEmpty()) return emptyList()
+        val firstChar = word[0]
+        val alternates = banglaCharAlternates[firstChar] ?: return emptyList()
+        val rest = word.substring(1)
+        return alternates.map { "$it$rest" }
+    }
+
+    /**
      * Get predictions based on current composing word and previous context
      */
     fun getPredictions(
@@ -152,10 +215,11 @@ object PredictionEngine {
         isBangla: Boolean
     ): List<String> {
         val results = mutableListOf<String>()
-        val cleanWord = currentWord.trim().lowercase()
+        val cleanWord = currentWord.trim()
+        val cleanLower = cleanWord.lowercase()
 
         // 1. Emoji association check
-        emojiMap[cleanWord]?.let { results.add(it) }
+        emojiMap[cleanLower]?.let { results.add(it) }
 
         if (cleanWord.isEmpty()) {
             // Predict NEXT words based on previous word/context
@@ -169,7 +233,6 @@ object PredictionEngine {
                     if (results.isEmpty()) {
                         banglaNextWordMap[lastWord]?.let { results.addAll(it) }
                     }
-                    // Emoji for last word
                     emojiMap[lastWord]?.let { results.add(it) }
                 } else {
                     val lowerLast = lastWord.lowercase()
@@ -179,34 +242,52 @@ object PredictionEngine {
                     if (results.isEmpty()) {
                         englishNextWordMap[lowerLast]?.let { results.addAll(it) }
                     }
-                    // Emoji for last word
                     emojiMap[lowerLast]?.let { results.add(it) }
                 }
             }
         } else {
-            // 2. Autocorrect match first
+            // 2. Direct exact candidate first
+            results.add(cleanWord)
+
+            // 3. Autocorrect match
             if (isBangla) {
-                banglaAutocorrectMap[cleanWord]?.let { results.add(it) }
+                banglaAutocorrectMap[cleanWord]?.let { if (it != cleanWord) results.add(it) }
             } else {
-                englishAutocorrectMap[cleanWord]?.let { results.add(it) }
+                englishAutocorrectMap[cleanLower]?.let { if (it != cleanWord) results.add(it) }
             }
 
-            // 3. User learned words matching prefix
-            val userMatches = userLearnedWords.filter { (w, _) ->
-                w.lowercase().startsWith(cleanWord) && w.lowercase() != cleanWord
-            }.entries.sortedByDescending { it.value }.map { it.key }
-            results.addAll(userMatches.take(2))
-
-            // 4. Vocabulary prefix matching
+            // 4. Bangla Orthographic / Phonetic Alternates (যেমন: 'তা' দিলে 'টা')
             if (isBangla) {
-                val matches = banglaVocabulary.filter { it.startsWith(cleanWord) && it != cleanWord }
-                results.addAll(matches.take(4))
+                val altPrefixes = getBanglaAlternatePrefixes(cleanWord)
+                for (alt in altPrefixes) {
+                    results.add(alt)
+                }
+            }
+
+            // 5. User learned words matching prefix
+            val userMatches = userLearnedWords.filter { (w, _) ->
+                w.lowercase().startsWith(cleanLower) && w.lowercase() != cleanLower
+            }.entries.sortedByDescending { it.value }.map { it.key }
+            results.addAll(userMatches.take(4))
+
+            // 6. Vocabulary prefix and compound expansions (যেমন: 'চাল' -> 'চালতা', 'চালাক', 'চালানো')
+            if (isBangla) {
+                val directMatches = banglaVocabulary.filter { it.startsWith(cleanWord) && it != cleanWord }
+                results.addAll(directMatches.take(8))
+
+                // Also match vocabulary for alternate prefixes (যেমন: 'তা' এর বিপরীতে 'টা' দিয়ে 'টাকা', 'টাইম')
+                val altPrefixes = getBanglaAlternatePrefixes(cleanWord)
+                for (alt in altPrefixes) {
+                    val altMatches = banglaVocabulary.filter { it.startsWith(alt) && it != alt }
+                    results.addAll(altMatches.take(4))
+                }
             } else {
-                val matches = englishDictionary.filter { it.startsWith(cleanWord) && it != cleanWord }
-                results.addAll(matches.take(4))
+                val matches = englishDictionary.filter { it.startsWith(cleanLower) && it != cleanLower }
+                results.addAll(matches.take(8))
             }
         }
 
-        return results.distinct().take(5)
+        // Return up to 12 distinct, high-precision candidates
+        return results.distinct().take(12)
     }
 }

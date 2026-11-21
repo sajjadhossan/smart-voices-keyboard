@@ -1,11 +1,11 @@
 /**
- * Prediction Engine Tests (Phase 2)
- * Tests autocorrect, prefix auto-completion, next-word N-grams, emoji suggestions, and dynamic learning.
+ * Prediction Engine Tests (Phase 2 & Phase 9)
+ * Tests autocorrect, prefix auto-completion, next-word N-grams, emoji suggestions,
+ * compound word expansion (e.g. চাল -> চালতা), and phonetic/orthographic alternates (তা -> টা).
  */
 
 const assert = require('assert');
 
-// Reference JavaScript implementation of PredictionEngine for cross-platform node testing
 class TestPredictionEngine {
   constructor() {
     this.userLearned = new Map();
@@ -38,8 +38,29 @@ class TestPredictionEngine {
       'আসসালামু': ['আলাইকুম'],
       'ইনশা': ['আল্লাহ']
     };
-    this.englishVocab = ['the', 'that', 'have', 'hello', 'thanks', 'tomorrow'];
-    this.banglaVocab = ['বাংলাদেশ', 'ধন্যবাদ', 'ভালোবাসা', 'স্বাগতম'];
+    this.englishVocab = ['the', 'that', 'have', 'hello', 'thanks', 'tomorrow', 'connect', 'continue', 'contact'];
+    this.banglaVocab = [
+      'বাংলাদেশ', 'ধন্যবাদ', 'ভালোবাসা', 'স্বাগতম',
+      'চাল', 'চালতা', 'চালাক', 'চালানো', 'চালচলন',
+      'তা', 'টা', 'তার', 'তাদের', 'তাহলে', 'টাকা', 'টাইম', 'টাকায়'
+    ];
+    this.banglaCharAlternates = {
+      'ত': ['ট'],
+      'ট': ['ত'],
+      'থ': ['ঠ'],
+      'ঠ': ['থ'],
+      'দ': ['ড'],
+      'ড': ['দ'],
+      'ধ': ['ঢ'],
+      'ঢ': ['ধ'],
+      'শ': ['ষ', 'স'],
+      'স': ['শ', 'ষ'],
+      'ন': ['ণ'],
+      'ণ': ['ন'],
+      'ব': ['ভ'],
+      'ভ': ['ব'],
+      'র': ['ড়', 'ঢ়']
+    };
   }
 
   learnWord(word) {
@@ -50,13 +71,22 @@ class TestPredictionEngine {
     }
   }
 
+  getBanglaAlternatePrefixes(word) {
+    if (!word) return [];
+    const firstChar = word[0];
+    const alts = this.banglaCharAlternates[firstChar] || [];
+    const rest = word.substring(1);
+    return alts.map(a => `${a}${rest}`);
+  }
+
   getPredictions(currentWord, previousText, isBangla) {
     const results = [];
-    const clean = currentWord.trim().toLowerCase();
+    const clean = currentWord.trim();
+    const cleanLower = clean.toLowerCase();
 
     // Emoji check
-    if (this.emojiMap[clean]) {
-      results.push(this.emojiMap[clean]);
+    if (this.emojiMap[cleanLower]) {
+      results.push(this.emojiMap[cleanLower]);
     }
 
     if (!clean) {
@@ -79,32 +109,50 @@ class TestPredictionEngine {
         }
       }
     } else {
+      // Direct candidate
+      results.push(clean);
+
       // Autocorrect
       if (isBangla) {
-        if (this.banglaAutocorrect[clean]) results.push(this.banglaAutocorrect[clean]);
+        if (this.banglaAutocorrect[clean] && this.banglaAutocorrect[clean] !== clean) {
+          results.push(this.banglaAutocorrect[clean]);
+        }
+        // Alternates (e.g. 'তা' -> 'টা')
+        const altPrefixes = this.getBanglaAlternatePrefixes(clean);
+        results.push(...altPrefixes);
       } else {
-        if (this.englishAutocorrect[clean]) results.push(this.englishAutocorrect[clean]);
+        if (this.englishAutocorrect[cleanLower] && this.englishAutocorrect[cleanLower] !== clean) {
+          results.push(this.englishAutocorrect[cleanLower]);
+        }
       }
 
       // User learned matching prefix
       for (const [w] of this.userLearned.entries()) {
-        if (w.toLowerCase().startsWith(clean) && w.toLowerCase() !== clean) {
+        if (w.toLowerCase().startsWith(cleanLower) && w.toLowerCase() !== cleanLower) {
           results.push(w);
         }
       }
 
-      // Vocab
+      // Vocab & compound expansions (e.g. 'চাল' -> 'চালতা', 'চালাক')
       const vocab = isBangla ? this.banglaVocab : this.englishVocab;
-      const matches = vocab.filter(w => w.startsWith(clean) && w !== clean);
+      const matches = vocab.filter(w => w.startsWith(isBangla ? clean : cleanLower) && w !== clean);
       results.push(...matches);
+
+      if (isBangla) {
+        const altPrefixes = this.getBanglaAlternatePrefixes(clean);
+        for (const alt of altPrefixes) {
+          const altMatches = this.banglaVocab.filter(w => w.startsWith(alt) && w !== alt);
+          results.push(...altMatches);
+        }
+      }
     }
 
-    return [...new Set(results)].slice(0, 5);
+    return [...new Set(results)].slice(0, 12);
   }
 }
 
 async function runPredictionEngineTests() {
-  console.log('=== Intelligent Prediction Engine Tests (Phase 2) ===\n');
+  console.log('=== Intelligent Multi-Prediction Engine Tests (Phase 2 & Phase 9) ===\n');
 
   const engine = new TestPredictionEngine();
 
@@ -145,10 +193,28 @@ async function runPredictionEngineTests() {
   assert(learnedPreds.includes('SajjadHossan'), 'Custom user word should be predicted');
   console.log('  [PASS] User dictionary learning and prioritization verified.');
 
-  console.log('\n=== ALL PREDICTION ENGINE TESTS PASSED (4/4)! ===\n');
+  // Test 5: Compound & Substring Word Expansion (User: চাল -> চালতা)
+  console.log('5. Testing Compound Word Expansion (চাল -> চালতা)...');
+  const chalPreds = engine.getPredictions('চাল', '', true);
+  assert(chalPreds.includes('চালতা'), 'চাল should predict চালতা');
+  assert(chalPreds.includes('চালাক'), 'চাল should predict চালাক');
+  console.log('  [PASS] Compound word expansion verified ("চাল" -> "চালতা", "চালাক").');
+
+  // Test 6: Orthographic & Phonetic Alternates (User: তা -> টা)
+  console.log('6. Testing Phonetic / Orthographic Alternates (তা -> টা)...');
+  const taPreds = engine.getPredictions('তা', '', true);
+  assert(taPreds.includes('টা'), 'তা should suggest alternate টা');
+  assert(taPreds.includes('টাকা'), 'তা should suggest alternate vocabulary টাকা');
+  console.log('  [PASS] Phonetic alternate suggestions verified ("তা" -> "টা", "টাকা").');
+
+  console.log('\n=== ALL PREDICTION ENGINE TESTS PASSED (6/6)! ===\n');
 }
 
-runPredictionEngineTests().catch(err => {
-  console.error('Test Failed:', err);
-  process.exit(1);
-});
+if (require.main === module) {
+  runPredictionEngineTests().catch(err => {
+    console.error('Test Failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { TestPredictionEngine };

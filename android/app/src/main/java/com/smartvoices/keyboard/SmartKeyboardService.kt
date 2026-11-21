@@ -169,6 +169,7 @@ class SmartKeyboardService : InputMethodService() {
 
     private lateinit var rootLayout: LinearLayout
     private lateinit var toolbarLayout: LinearLayout
+    private lateinit var suggestionScrollView: HorizontalScrollView
     private lateinit var suggestionBar: LinearLayout
     private lateinit var contentContainer: FrameLayout
     private lateinit var keysLayout: LinearLayout
@@ -695,18 +696,28 @@ class SmartKeyboardService : InputMethodService() {
     }
 
     private fun buildSuggestionBar(theme: KeyboardTheme) {
-        suggestionBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        suggestionScrollView = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
             visibility = View.GONE
-            setBackgroundColor(theme.toolbarBg)
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(8), dpToPx(4), dpToPx(8), dpToPx(4))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        rootLayout.addView(suggestionBar)
+
+        suggestionBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(theme.toolbarBg)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dpToPx(6), dpToPx(3), dpToPx(6), dpToPx(3))
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        suggestionScrollView.addView(suggestionBar)
+        rootLayout.addView(suggestionScrollView)
     }
 
     /**
@@ -735,35 +746,59 @@ class SmartKeyboardService : InputMethodService() {
             }
             val preds = PredictionEngine.getPredictions(transliterated, "", true)
             candidates.addAll(preds)
-        } else if (currentMode == TypingMode.ENGLISH) {
-            val prevText = ic?.getTextBeforeCursor(40, 0)?.toString() ?: ""
-            val preds = PredictionEngine.getPredictions("", prevText, false)
-            candidates.addAll(preds)
-        } else if (currentMode == TypingMode.BANGLA) {
-            val prevText = ic?.getTextBeforeCursor(40, 0)?.toString() ?: ""
-            val preds = PredictionEngine.getPredictions("", prevText, true)
+        } else {
+            val textBefore = ic?.getTextBeforeCursor(60, 0)?.toString() ?: ""
+            val isBangla = currentMode == TypingMode.BANGLA
+            val hasTrailingSpace = textBefore.isEmpty() || Character.isWhitespace(textBefore.last())
+
+            val currentWord: String
+            val prevContext: String
+            if (hasTrailingSpace) {
+                currentWord = ""
+                prevContext = textBefore.trim()
+            } else {
+                var idx = textBefore.length
+                val isPunctOrSpace = { ch: Char -> Character.isWhitespace(ch) || ",.!?;:-–—\"'`()[]{}।॥".indexOf(ch) >= 0 }
+                while (idx > 0 && !isPunctOrSpace(textBefore[idx - 1])) {
+                    idx--
+                }
+                currentWord = textBefore.substring(idx)
+                prevContext = textBefore.substring(0, idx).trim()
+            }
+
+            val preds = PredictionEngine.getPredictions(currentWord, prevContext, isBangla)
             candidates.addAll(preds)
         }
 
-        val distinctList = candidates.distinct().take(5)
+        val distinctList = candidates.distinct().take(12)
         if (distinctList.isEmpty()) {
+            if (::suggestionScrollView.isInitialized) {
+                suggestionScrollView.visibility = View.GONE
+            }
             suggestionBar.visibility = View.GONE
             return
         }
 
+        if (::suggestionScrollView.isInitialized) {
+            suggestionScrollView.visibility = View.VISIBLE
+        }
         suggestionBar.visibility = View.VISIBLE
-        for (cand in distinctList) {
+
+        for ((index, cand) in distinctList.withIndex()) {
+            val isPrimary = index == 0
             val chip = Button(this).apply {
                 text = cand
-                textSize = 13f
-                setTextColor(currentTheme.textColor)
-                background = createRoundedDrawable(currentTheme.specialKeyBg, dpToPx(8))
-                setPadding(dpToPx(14), dpToPx(4), dpToPx(14), dpToPx(4))
+                textSize = 13.5f
+                setTypeface(null, if (isPrimary) Typeface.BOLD else Typeface.NORMAL)
+                setTextColor(if (isPrimary) Color.WHITE else currentTheme.textColor)
+                val chipBgColor = if (isPrimary) currentTheme.actionKeyBg else currentTheme.specialKeyBg
+                background = createRoundedDrawable(chipBgColor, dpToPx(14))
+                setPadding(dpToPx(14), dpToPx(5), dpToPx(14), dpToPx(5))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    setMargins(dpToPx(4), 0, dpToPx(4), 0)
+                    setMargins(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
                 }
                 setOnClickListener {
                     triggerHapticAndSound()
@@ -1109,9 +1144,10 @@ class SmartKeyboardService : InputMethodService() {
 
         val keyLayout = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply {
-                setMargins(dpToPx(2), 0, dpToPx(2), 0)
+                setMargins(dpToPx(2), dpToPx(3), dpToPx(2), dpToPx(3))
             }
-            background = createRoundedDrawable(bgColor, dpToPx(6))
+            elevation = dpToPx(2).toFloat()
+            background = createRoundedDrawable(bgColor, dpToPx(8))
         }
 
         val displayKey = when {
@@ -1493,9 +1529,9 @@ class SmartKeyboardService : InputMethodService() {
 
     private fun getModeLabel(): String {
         return when (currentMode) {
-            TypingMode.ENGLISH -> "EN"
-            TypingMode.BANGLISH -> "বাংলিশ"
-            TypingMode.BANGLA -> "বাংলা"
+            TypingMode.ENGLISH -> "🌐 English"
+            TypingMode.BANGLISH -> "🇧🇩 বাংলিশ"
+            TypingMode.BANGLA -> "✍️ বাংলা"
         }
     }
 

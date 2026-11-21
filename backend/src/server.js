@@ -54,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '2.2.0',
+    latestVersion: '2.3.0',
     minimumSupportedVersion: '1.0.0',
     apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.2.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.2.0-macOS-universal.dmg',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'রিলিজ ২.২.০: পারমানেন্ট রিলিজ কী-সাইনড এপিকে এবং ইন-অ্যাপ অটো-আপডেট ইঞ্জিন — পুরানো অ্যাপ ডিলিট না করে এক ক্লিকে সরাসরি ইনস্টল ও আপডেট করার পূর্ণাঙ্গ সুবিধা।',
-      en: 'Release 2.2.0: Permanent release keystore signing and in-app one-click auto-updater — in-place updates without uninstalling.'
+      bn: 'রিলিজ ২.৩.০: ডিপ প্রেডিকশন ইঞ্জিন (যৌগিক শব্দ যেমন চাল->চালতা ও ধ্বনিতাত্ত্বিক বিকল্প যেমন তা->টা), হরাইজন্টাল স্ক্রলেবল ক্যান্ডিডেট বার এবং আধুনিক কি-ক্যাপ ইউআই।',
+      en: 'Release 2.3.0: Deep multi-prediction engine (compound expansion & phonetic alternates), scrollable candidate strip, and modern keycap UI overhaul.'
     },
     forceUpdate: false
   }
