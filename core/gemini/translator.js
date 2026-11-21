@@ -15,6 +15,53 @@ class GeminiTranslator {
   }
 
   /**
+   * Resilient request with automatic candidate model and API version fallback
+   */
+  async requestWithFallback(requestBody) {
+    const candidates = [
+      { ver: 'v1beta', model: this.modelName || 'gemini-2.0-flash' },
+      { ver: 'v1beta', model: 'gemini-1.5-flash' },
+      { ver: 'v1', model: 'gemini-1.5-flash' },
+      { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
+      { ver: 'v1beta', model: 'gemini-2.5-flash' },
+      { ver: 'v1', model: 'gemini-2.0-flash' }
+    ];
+
+    let lastErr = '';
+    let lastStatus = 0;
+
+    for (const c of candidates) {
+      const url = `https://generativelanguage.googleapis.com/${c.ver}/models/${c.model}:generateContent?key=${this.apiKey}`;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (response.ok) {
+          this.modelName = c.model;
+          return await response.json();
+        }
+
+        lastStatus = response.status;
+        lastErr = await response.text();
+
+        if (response.status !== 404 && response.status !== 400) {
+          break; // Stop on auth (401/403) or rate limits (429)
+        }
+      } catch (err) {
+        lastErr = err.message;
+      }
+    }
+
+    if (lastStatus === 404) {
+      throw new Error(`Gemini API error [404]: No active Gemini model found. Please verify API key at aistudio.google.com.`);
+    }
+    throw new Error(`Gemini API error [${lastStatus}]: ${lastErr}`);
+  }
+
+  /**
    * Translate text between English and Bengali
    * @param {string} text - Source text
    * @param {string} sourceLang - 'en' or 'bn'
@@ -51,19 +98,7 @@ Rules:
       }
     };
 
-    const url = `${this.baseUrl}/${this.modelName}:generateContent?key=${this.apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Gemini API error [${response.status}]: ${err}`);
-    }
-
-    const data = await response.json();
+    const data = await this.requestWithFallback(requestBody);
     const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
     return candidate ? candidate.trim() : '';
   }
@@ -103,36 +138,25 @@ Return JSON format ONLY:
       }
     };
 
-    const url = `${this.baseUrl}/${this.modelName}:generateContent?key=${this.apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Gemini Voice Command Error [${response.status}]: ${err}`);
+    const data = await this.requestWithFallback(requestBody);
+    const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!candidate) {
+      return { action: 'direct_dictation', result: rawVoiceInput, original: rawVoiceInput };
     }
 
-    const data = await response.json();
-    const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text;
     try {
-      return JSON.parse(textOutput);
+      const parsed = JSON.parse(candidate);
+      return {
+        action: parsed.action || 'direct_dictation',
+        result: parsed.result || rawVoiceInput,
+        original: parsed.original || rawVoiceInput
+      };
     } catch (e) {
-      return { action: 'direct_dictation', result: textOutput || rawVoiceInput, original: rawVoiceInput };
-    }
-  }
-
-  /**
-   * Health check / validation of API key
-   */
-  async validateKey() {
-    try {
-      const test = await this.translate('Hello', 'en', 'bn');
-      return { valid: true, sample: test };
-    } catch (err) {
-      return { valid: false, error: err.message };
+      return {
+        action: 'direct_dictation',
+        result: candidate.trim(),
+        original: rawVoiceInput
+      };
     }
   }
 }

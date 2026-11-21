@@ -149,19 +149,7 @@ class VoiceCommandEngine {
       }
     };
 
-    const url = `${this.baseUrl}?key=${this.apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Gemini Voice Command Error [${response.status}]: ${err}`);
-    }
-
-    const data = await response.json();
+    const data = await this.translator.requestWithFallback(requestBody);
     const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     return {
       action: detected.type,

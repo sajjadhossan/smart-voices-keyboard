@@ -149,13 +149,14 @@ class SettingsActivity : AppCompatActivity() {
                 val status = service.pingConnection()
                 btnTestApi.isEnabled = true
                 if (status.isConnected) {
-                    tvApiStatus.text = "🟢 Gemini API সক্রিয় | ল্যাটেন্সি: ${status.latencyMs}ms | মডেল: 1.5-Flash"
+                    tvApiStatus.text = "🟢 Gemini API সক্রিয় | ল্যাটেন্সি: ${status.latencyMs}ms | মডেল: ${status.activeModel}"
                     tvApiStatus.setTextColor(Color.parseColor("#10B981"))
                     prefs.edit()
                         .putString("gemini_api_key", key)
+                        .putString("gemini_active_model", status.activeModel)
                         .putBoolean("gemini_api_verified", true)
                         .apply()
-                    Toast.makeText(this@SettingsActivity, "Gemini API সক্রিয়! 🟢 (${status.latencyMs}ms)", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@SettingsActivity, "Gemini API সক্রিয়! 🟢 (${status.activeModel})", Toast.LENGTH_SHORT).show()
                 } else {
                     tvApiStatus.text = "🔴 এপিআই ত্রুটি: ${status.message}"
                     tvApiStatus.setTextColor(Color.parseColor("#EF4444"))

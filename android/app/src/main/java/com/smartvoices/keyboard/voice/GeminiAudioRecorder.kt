@@ -10,6 +10,7 @@ import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
 import android.util.Base64
 import androidx.core.content.ContextCompat
+import com.smartvoices.keyboard.gemini.GeminiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -246,15 +247,6 @@ class GeminiAudioRecorder(private val context: Context) {
 
                 val systemPrompt = "You are an enterprise speech recognition engine. $langPrompt Output ONLY the exact transcribed text without quotes, formatting, or commentary."
 
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
-                val connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    setRequestProperty("Content-Type", "application/json")
-                    doOutput = true
-                    connectTimeout = 12000
-                    readTimeout = 20000
-                }
-
                 val body = JSONObject().apply {
                     val contents = JSONArray().apply {
                         val userObj = JSONObject().apply {
@@ -275,34 +267,77 @@ class GeminiAudioRecorder(private val context: Context) {
                     }
                     put("contents", contents)
                 }
+                val bodyString = body.toString()
 
-                val writer = OutputStreamWriter(connection.outputStream)
-                writer.write(body.toString())
-                writer.flush()
-                writer.close()
-
-                val responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                    val response = reader.readText()
-                    reader.close()
-
-                    val jsonResp = JSONObject(response)
-                    val candidates = jsonResp.getJSONArray("candidates")
-                    if (candidates.length() > 0) {
-                        val content = candidates.getJSONObject(0).getJSONObject("content")
-                        val parts = content.getJSONArray("parts")
-                        val text = parts.getJSONObject(0).getString("text").trim()
-                        Result.success(text)
-                    } else {
-                        Result.failure(Exception("No transcription returned from Gemini"))
+                val candidateList = mutableListOf<Pair<String, String>>()
+                candidateList.add(Pair(GeminiService.activeApiVersion, GeminiService.activeModelName))
+                for (c in GeminiService.CANDIDATE_MODELS) {
+                    if (c != Pair(GeminiService.activeApiVersion, GeminiService.activeModelName)) {
+                        candidateList.add(c)
                     }
-                } else {
-                    val reader = BufferedReader(InputStreamReader(connection.errorStream))
-                    val error = reader.readText()
-                    reader.close()
-                    Result.failure(Exception("Gemini STT Error [$responseCode]: $error"))
                 }
+
+                var lastError = ""
+                var lastCode = 0
+
+                for ((version, model) in candidateList) {
+                    try {
+                        val url = GeminiService.getEndpointUrl(version, model, apiKey)
+                        val connection = (url.openConnection() as HttpURLConnection).apply {
+                            requestMethod = "POST"
+                            setRequestProperty("Content-Type", "application/json")
+                            doOutput = true
+                            connectTimeout = 12000
+                            readTimeout = 20000
+                        }
+
+                        OutputStreamWriter(connection.outputStream).use { writer ->
+                            writer.write(bodyString)
+                            writer.flush()
+                        }
+
+                        val responseCode = connection.responseCode
+                        if (responseCode == HttpURLConnection.HTTP_OK) {
+                            val response = connection.inputStream.bufferedReader().use { it.readText() }
+                            val jsonResp = JSONObject(response)
+                            val candidates = jsonResp.optJSONArray("candidates")
+                            if (candidates != null && candidates.length() > 0) {
+                                val content = candidates.getJSONObject(0).optJSONObject("content")
+                                val parts = content?.optJSONArray("parts")
+                                val text = parts?.optJSONObject(0)?.optString("text", "")?.trim() ?: ""
+
+                                // Save verified working model
+                                GeminiService.activeApiVersion = version
+                                GeminiService.activeModelName = model
+                                return@withContext Result.success(text)
+                            } else {
+                                return@withContext Result.failure(Exception("No transcription returned from Gemini"))
+                            }
+                        } else {
+                            lastCode = responseCode
+                            val errorText = try {
+                                connection.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                            } catch (_: Exception) { "" }
+                            lastError = errorText
+
+                            if (responseCode == HttpURLConnection.HTTP_NOT_FOUND || responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {
+                                continue
+                            } else {
+                                break
+                            }
+                        }
+                    } catch (e: Exception) {
+                        lastError = e.message ?: "Network error"
+                    }
+                }
+
+                val friendlyMsg = if (lastCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                    "জেমিনি অডিও মডেল পাওয়া যায়নি (Error 404)। দয়া করে aistudio.google.com থেকে নতুন এপিআই কি তৈরি করুন।"
+                } else {
+                    "Gemini STT Error [$lastCode]: $lastError"
+                }
+
+                Result.failure(Exception(friendlyMsg))
             } catch (e: Exception) {
                 Result.failure(e)
             }
