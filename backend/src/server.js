@@ -54,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '2.1.0',
+    latestVersion: '2.1.1',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v2.1.0-build14-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.1.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.1.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v2.1.1-build15-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.1.1-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.1.1-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'রিলিজ ২.১.০: জেমিনি এপিআই অটো-মডেল ডিটেকশন ও মাল্টি-মডেল ফলব্যাক ক্যাসকেড — 404 এরর প্রিভেনশন এবং gemini-2.0-flash, gemini-1.5-flash, gemini-2.5-flash হাই-স্পিড সাপোর্ট।',
-      en: 'Release 2.1.0: Gemini API Auto-Model Discovery & Multi-Model Fallback Cascade — 404 error prevention and dynamic support for gemini-2.0-flash, gemini-1.5-flash, and gemini-2.5-flash.'
+      bn: 'রিলিজ ২.১.১: এপিআই কী স্যানিটাইজেশন, x-goog-api-key হেডার অথেন্টিকেশন এবং বিস্তারিত ডায়াগনস্টিক রিপোর্ট।',
+      en: 'Release 2.1.1: API key sanitization, x-goog-api-key header authentication and granular diagnostic reporting.'
     },
     forceUpdate: false
   }

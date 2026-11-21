@@ -133,7 +133,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         btnTestApi.setOnClickListener {
-            val key = etApiKey.text.toString().trim()
+            val key = GeminiService.sanitizeKey(etApiKey.text.toString())
             if (key.isBlank()) {
                 tvApiStatus.text = "🔴 অনুগ্রহ করে প্রথমে API Key লিখুন"
                 tvApiStatus.setTextColor(Color.parseColor("#EF4444"))
@@ -177,7 +177,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         btnSaveSettings.setOnClickListener {
-            val key = etApiKey.text.toString().trim()
+            val key = GeminiService.sanitizeKey(etApiKey.text.toString())
             val selectedThemeKey = themeKeys[spinnerThemes.selectedItemPosition]
             val selectedModeKey = modeKeys[spinnerDefaultMode.selectedItemPosition]
 

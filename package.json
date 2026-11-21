@@ -1,6 +1,6 @@
 {
   "name": "smart-voices-keyboard",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Cross-platform voice keyboard application with free open-source STT, Gemini API translation, unlimited clipboard, and Bangla/English/Banglish typing for Android, Windows, and macOS.",
   "author": "Sajjad Hossan",
   "license": "MIT",

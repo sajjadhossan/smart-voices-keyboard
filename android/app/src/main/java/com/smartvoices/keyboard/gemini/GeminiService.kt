@@ -35,9 +35,14 @@ class GeminiService(private var apiKey: String) {
             Pair("v1beta", "gemini-1.5-pro")
         )
 
+        fun sanitizeKey(key: String): String {
+            return key.trim().replace("\"", "").replace("'", "").filter { !it.isWhitespace() && it.code in 32..126 }
+        }
+
         fun getEndpointUrl(apiVersion: String, model: String, apiKey: String): URL {
+            val cleanKey = sanitizeKey(apiKey)
             val cleanModel = model.removePrefix("models/")
-            return URL("https://generativelanguage.googleapis.com/$apiVersion/models/$cleanModel:generateContent?key=$apiKey")
+            return URL("https://generativelanguage.googleapis.com/$apiVersion/models/$cleanModel:generateContent?key=$cleanKey")
         }
 
         fun getActiveEndpointUrl(apiKey: String): URL {
@@ -46,18 +51,20 @@ class GeminiService(private var apiKey: String) {
     }
 
     fun updateApiKey(newKey: String) {
-        this.apiKey = newKey
+        this.apiKey = sanitizeKey(newKey)
     }
 
     suspend fun discoverActiveModel(): Pair<String, String>? {
         return withContext(Dispatchers.IO) {
-            if (apiKey.isBlank()) return@withContext null
+            val cleanKey = sanitizeKey(apiKey)
+            if (cleanKey.isBlank()) return@withContext null
             val versions = listOf("v1beta", "v1")
             for (ver in versions) {
                 try {
-                    val url = URL("https://generativelanguage.googleapis.com/$ver/models?key=$apiKey")
+                    val url = URL("https://generativelanguage.googleapis.com/$ver/models?key=$cleanKey")
                     val conn = (url.openConnection() as HttpURLConnection).apply {
                         requestMethod = "GET"
+                        setRequestProperty("x-goog-api-key", cleanKey)
                         connectTimeout = 7000
                         readTimeout = 8000
                     }
@@ -172,7 +179,8 @@ class GeminiService(private var apiKey: String) {
 
     private suspend fun callGemini(systemPrompt: String, input: String): Result<String> {
         return withContext(Dispatchers.IO) {
-            if (apiKey.isBlank()) {
+            val cleanKey = sanitizeKey(apiKey)
+            if (cleanKey.isBlank()) {
                 return@withContext Result.failure(Exception("Gemini API Key is not set"))
             }
 
@@ -206,10 +214,11 @@ class GeminiService(private var apiKey: String) {
 
             for ((version, model) in candidateList) {
                 try {
-                    val url = getEndpointUrl(version, model, apiKey)
+                    val url = getEndpointUrl(version, model, cleanKey)
                     val connection = (url.openConnection() as HttpURLConnection).apply {
                         requestMethod = "POST"
                         setRequestProperty("Content-Type", "application/json")
+                        setRequestProperty("x-goog-api-key", cleanKey)
                         doOutput = true
                         connectTimeout = 8000
                         readTimeout = 12000
@@ -257,13 +266,21 @@ class GeminiService(private var apiKey: String) {
                 }
             }
 
-            // If all candidates failed with 404, provide crystal-clear guidance
-            val friendlyMsg = if (lastCode == HttpURLConnection.HTTP_NOT_FOUND) {
-                "গুগল জেমিনি মডেল পাওয়া যায়নি (Error 404)। দয়া করে aistudio.google.com থেকে নতুন API Key তৈরি করুন এবং Generative Language API চালু রয়েছে কি না নিশ্চিত করুন।"
+            val googleMsg = try {
+                val errJson = JSONObject(lastError)
+                errJson.optJSONObject("error")?.optString("message", "") ?: ""
+            } catch (_: Exception) { "" }
+
+            val friendlyMsg = if (googleMsg.contains("has not been used in project") || googleMsg.contains("is disabled")) {
+                "গুগল ক্লাউড প্রজেক্টে Generative Language API সক্রিয় নেই। দয়া করে aistudio.google.com থেকে 'Create API key in new project' বেছে নিন অথবা console.cloud.google.com এ গিয়ে Generative Language API Enable করুন।"
+            } else if (lastCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                if (googleMsg.isNotBlank()) "এপিআই ত্রুটি (404): $googleMsg"
+                else "গুগল জেমিনি মডেল পাওয়া যায়নি (Error 404)। দয়া করে aistudio.google.com থেকে নতুন API Key তৈরি করুন এবং Generative Language API সক্রিয় রয়েছে কি না নিশ্চিত করুন।"
             } else if (lastCode == HttpURLConnection.HTTP_UNAUTHORIZED || lastCode == HttpURLConnection.HTTP_FORBIDDEN) {
                 "Gemini API Key অবৈধ অথবা অনুমতি নেই (Error $lastCode)। সঠিক কী নিশ্চিত করুন।"
             } else {
-                "Gemini API Error [$lastCode]: $lastError"
+                if (googleMsg.isNotBlank()) "Gemini API Error [$lastCode]: $googleMsg"
+                else "Gemini API Error [$lastCode]: $lastError"
             }
 
             Result.failure(Exception(friendlyMsg))
