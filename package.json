@@ -5,8 +5,12 @@
   "author": "Sajjad Hossan",
   "license": "MIT",
   "main": "desktop/src/main/index.js",
+  "bin": {
+    "smartkey": "cli/smartkey.js"
+  },
   "scripts": {
     "start": "electron desktop/src/main/index.js",
+    "smartkey": "node cli/smartkey.js",
     "start:backend": "node backend/src/server.js",
     "dev:desktop": "electron desktop/src/main/index.js --dev",
     "build:desktop": "electron-builder --config desktop/electron-builder.yml --publish never",
@@ -26,8 +30,9 @@
     "test:gesture": "node --test core/test/gesture-engine.test.js",
     "test:replacement": "node --test core/test/prediction-replacement.test.js",
     "test:quickmode": "node --test core/test/quick-mode-engine.test.js",
+    "test:cli": "node --test core/test/smartkey-cli.test.js",
     "test:backend": "node backend/test/server.test.js",
-    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:livetranslate && npm run test:prediction && npm run test:theme && npm run test:autopunctuation && npm run test:backup && npm run test:gesture && npm run test:replacement && npm run test:quickmode && npm run test:desktop && npm run test:backend"
+    "test": "npm run test:phonetic && npm run test:gemini && npm run test:commands && npm run test:stt && npm run test:sync && npm run test:livetranslate && npm run test:prediction && npm run test:theme && npm run test:autopunctuation && npm run test:backup && npm run test:gesture && npm run test:replacement && npm run test:quickmode && npm run test:cli && npm run test:desktop && npm run test:backend"
   },
   "dependencies": {
     "dotenv": "^16.4.7"
