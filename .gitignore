@@ -19,6 +19,7 @@ release/
 .env.local
 *.pem
 *.keystore
+!android/app/release.keystore
 *.jks
 local.properties
 

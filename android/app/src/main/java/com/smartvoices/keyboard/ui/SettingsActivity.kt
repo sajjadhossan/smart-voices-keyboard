@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import com.smartvoices.keyboard.R
 import com.smartvoices.keyboard.clipboard.ClipboardDbHelper
 import com.smartvoices.keyboard.gemini.GeminiService
+import com.smartvoices.keyboard.update.AppUpdateManager
 import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
@@ -233,6 +234,89 @@ class SettingsActivity : AppCompatActivity() {
             }
             startActivityForResult(Intent.createChooser(filePickerIntent, "ব্যাকআপ ফাইল বেছে নিন"), REQUEST_CODE_RESTORE)
         }
+
+        // In-App One-Click Auto-Update Engine
+        val tvUpdateStatus = findViewById<TextView>(R.id.tvUpdateStatus)
+        val tvReleaseNotes = findViewById<TextView>(R.id.tvReleaseNotes)
+        val pbUpdateProgress = findViewById<ProgressBar>(R.id.pbUpdateProgress)
+        val tvProgressPercent = findViewById<TextView>(R.id.tvProgressPercent)
+        val btnCheckUpdate = findViewById<Button>(R.id.btnCheckUpdate)
+        val btnDownloadInstall = findViewById<Button>(R.id.btnDownloadInstall)
+
+        var pendingDownloadUrl = ""
+
+        fun runCheckUpdate(showNoUpdateToast: Boolean = false) {
+            tvUpdateStatus?.text = "⏳ সার্ভারে নতুন আপডেট যাচাই করা হচ্ছে..."
+            tvUpdateStatus?.setTextColor(Color.parseColor("#38BDF8"))
+            btnCheckUpdate?.isEnabled = false
+
+            lifecycleScope.launch {
+                val currentVer = "2.2.0"
+                val result = AppUpdateManager.checkUpdate(currentVer)
+                btnCheckUpdate?.isEnabled = true
+                result.onSuccess { info ->
+                    if (info.hasUpdate && info.apkDownloadUrl.isNotBlank()) {
+                        pendingDownloadUrl = info.apkDownloadUrl
+                        tvUpdateStatus?.text = "🎉 নতুন সংস্করণ উপলভ্য: v${info.latestVersion}"
+                        tvUpdateStatus?.setTextColor(Color.parseColor("#10B981"))
+                        tvReleaseNotes?.visibility = View.VISIBLE
+                        tvReleaseNotes?.text = "রিলিজ নোট:\n${info.releaseNotesBn}"
+                        btnDownloadInstall?.visibility = View.VISIBLE
+                        btnDownloadInstall?.text = "এখনই আপডেট করুন (v${info.latestVersion}) 📥"
+                        Toast.makeText(this@SettingsActivity, "নতুন আপডেট পাওয়া গেছে! 🟢 (v${info.latestVersion})", Toast.LENGTH_SHORT).show()
+                    } else {
+                        tvUpdateStatus?.text = "✅ আপনি সর্বশেষ সংস্করণ (v$currentVer) ব্যবহার করছেন • Release Signed"
+                        tvUpdateStatus?.setTextColor(Color.parseColor("#10B981"))
+                        tvReleaseNotes?.visibility = View.GONE
+                        btnDownloadInstall?.visibility = View.GONE
+                        if (showNoUpdateToast) {
+                            Toast.makeText(this@SettingsActivity, "অ্যাপ সম্পূর্ণ আপ-টু-ডেট! ✨", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }.onFailure { err ->
+                    tvUpdateStatus?.text = "আপডেট চেক ব্যর্থ: ${err.message}"
+                    tvUpdateStatus?.setTextColor(Color.parseColor("#EF4444"))
+                }
+            }
+        }
+
+        btnCheckUpdate?.setOnClickListener {
+            runCheckUpdate(showNoUpdateToast = true)
+        }
+
+        btnDownloadInstall?.setOnClickListener {
+            if (pendingDownloadUrl.isBlank()) return@setOnClickListener
+            btnDownloadInstall.isEnabled = false
+            btnCheckUpdate?.isEnabled = false
+            pbUpdateProgress?.visibility = View.VISIBLE
+            tvProgressPercent?.visibility = View.VISIBLE
+            pbUpdateProgress?.progress = 0
+            tvProgressPercent?.text = "ডাউনলোড শুরু হচ্ছে..."
+
+            lifecycleScope.launch {
+                val dlResult = AppUpdateManager.downloadApk(this@SettingsActivity, pendingDownloadUrl) { progress ->
+                    pbUpdateProgress?.progress = progress
+                    tvProgressPercent?.text = "ডাউনলোড হচ্ছে: $progress%"
+                }
+
+                btnDownloadInstall.isEnabled = true
+                btnCheckUpdate?.isEnabled = true
+
+                dlResult.onSuccess { apkFile ->
+                    tvProgressPercent?.text = "ডাউনলোড সম্পন্ন! ইনস্টলার চালু হচ্ছে... 🚀"
+                    val installResult = AppUpdateManager.installApk(this@SettingsActivity, apkFile)
+                    installResult.onFailure { err ->
+                        Toast.makeText(this@SettingsActivity, "ইনস্টলেশন শুরু করা যায়নি: ${err.message}", Toast.LENGTH_LONG).show()
+                    }
+                }.onFailure { err ->
+                    tvProgressPercent?.text = "ডাউনলোড ব্যর্থ: ${err.message}"
+                    Toast.makeText(this@SettingsActivity, "ডাউনলোড ব্যর্থ: ${err.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        // Silent background check on launch
+        runCheckUpdate(showNoUpdateToast = false)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

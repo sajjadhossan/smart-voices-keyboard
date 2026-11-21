@@ -53,8 +53,6 @@ jobs:
           cd android
           gradle wrapper --gradle-version 8.4
           chmod +x gradlew
-          cd app && keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" || true
-          cd ..
           ./gradlew assembleRelease --no-daemon --stacktrace
           mkdir -p ../release
           find app/build/outputs/apk/ -name "*.apk" -exec cp {} ../release/SmartVoiceKeyboard-android.apk \;

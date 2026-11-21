@@ -54,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '2.1.1',
+    latestVersion: '2.2.0',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/app-v2.1.1-build15-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.1.1-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.1.1-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-android.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.2.0-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.2.0-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'রিলিজ ২.১.১: এপিআই কী স্যানিটাইজেশন, x-goog-api-key হেডার অথেন্টিকেশন এবং বিস্তারিত ডায়াগনস্টিক রিপোর্ট।',
-      en: 'Release 2.1.1: API key sanitization, x-goog-api-key header authentication and granular diagnostic reporting.'
+      bn: 'রিলিজ ২.২.০: পারমানেন্ট রিলিজ কী-সাইনড এপিকে এবং ইন-অ্যাপ অটো-আপডেট ইঞ্জিন — পুরানো অ্যাপ ডিলিট না করে এক ক্লিকে সরাসরি ইনস্টল ও আপডেট করার পূর্ণাঙ্গ সুবিধা।',
+      en: 'Release 2.2.0: Permanent release keystore signing and in-app one-click auto-updater — in-place updates without uninstalling.'
     },
     forceUpdate: false
   }

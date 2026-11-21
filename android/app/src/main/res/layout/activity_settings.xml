@@ -22,7 +22,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="By Sajjad Hossan • Version 1.7.0"
+            android:text="By Sajjad Hossan • Version 2.2.0 (Build 16)"
             android:textColor="#94A3B8"
             android:textSize="12sp" />
 
@@ -316,7 +316,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:layout_marginBottom="30dp"
             android:background="#1E293B"
             android:orientation="vertical"
             android:padding="16dp">
@@ -361,6 +360,90 @@
                     android:layout_marginStart="6dp"
                     android:backgroundTint="#475569"
                     android:text="📤 রিস্টোর করুন"
+                    android:textColor="#FFFFFF" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- In-App Direct Auto-Update Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="30dp"
+            android:background="#1E293B"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🚀 সফটওয়্যার এক-ক্লিক আপডেট (In-App Auto-Update)"
+                android:textColor="#10B981"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvUpdateStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="বর্তমান সংস্করণ: v2.2.0 (Build 16) • Release Signed"
+                android:textColor="#F8FAFC"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvReleaseNotes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:visibility="gone"
+                android:textColor="#38BDF8"
+                android:textSize="12sp" />
+
+            <ProgressBar
+                android:id="@+id/pbUpdateProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="8dp"
+                android:layout_marginTop="10dp"
+                android:visibility="gone"
+                android:max="100" />
+
+            <TextView
+                android:id="@+id/tvProgressPercent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:visibility="gone"
+                android:text=""
+                android:textColor="#94A3B8"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnCheckUpdate"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:backgroundTint="#334155"
+                    android:text="আপডেট চেক করুন 🔄"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btnDownloadInstall"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:visibility="gone"
+                    android:backgroundTint="#10B981"
+                    android:text="এখনই আপডেট করুন 📥"
                     android:textColor="#FFFFFF" />
             </LinearLayout>
         </LinearLayout>
