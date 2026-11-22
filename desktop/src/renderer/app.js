@@ -228,9 +228,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (final) {
         const processed = applyVoiceAutoPunctuation(final, voiceLanguageSelect?.value || 'bn-BD');
         voiceResultArea.value += (voiceResultArea.value ? ' ' : '') + processed;
+        voiceResultArea.scrollTop = voiceResultArea.scrollHeight;
+        voicePromptText.textContent = processed;
+
+        // Real-Time Auto-Injection to active app window if autoPaste is enabled
+        if (settingAutoPaste?.checked && window.api?.injectTextToActiveWindow) {
+          window.api.injectTextToActiveWindow(processed);
+        }
       } else if (interim) {
-        // Show interim preview
-        voicePromptText.textContent = interim;
+        // Show live real-time interim stream
+        voicePromptText.textContent = '🔴 ' + interim;
       }
     };
 

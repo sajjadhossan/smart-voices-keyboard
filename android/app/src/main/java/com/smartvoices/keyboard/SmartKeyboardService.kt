@@ -1607,12 +1607,10 @@ class SmartKeyboardService : InputMethodService() {
                 return
             }
 
-            val apiKey = prefs.getString("gemini_api_key", "") ?: ""
-            if (apiKey.isNotBlank()) {
-                startGeminiDirectVoice(apiKey)
-            } else {
-                startVoiceListening()
-            }
+            // Real-Time Streaming Voice Typing: Always use startVoiceListening (Streaming SpeechRecognizer)
+            // as primary for zero-latency instant word-by-word typing.
+            // If SpeechRecognizer is unavailable on OEM device, it automatically falls back to Gemini Audio/Dialog.
+            startVoiceListening()
         }
     }
 
@@ -1773,10 +1771,16 @@ class SmartKeyboardService : InputMethodService() {
                             }
 
                             override fun onError(error: Int) {
+                                currentInputConnection?.finishComposingText()
                                 stopVoiceListening()
-                                // If speech recognizer fails on OEM device, launch reliable voice input dialog immediately
+                                // If speech recognizer fails on OEM device, launch fallback or direct voice
                                 if (error == SpeechRecognizer.ERROR_CLIENT || error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS || error == SpeechRecognizer.ERROR_NO_MATCH) {
-                                    launchVoiceInputDialog()
+                                    val apiKey = prefs.getString("gemini_api_key", "") ?: ""
+                                    if (apiKey.isNotBlank()) {
+                                        startGeminiDirectVoice(apiKey)
+                                    } else {
+                                        launchVoiceInputDialog()
+                                    }
                                 } else {
                                     val errorMsg = when (error) {
                                         SpeechRecognizer.ERROR_AUDIO -> "অডিও রেকর্ডিং সমস্যা"
@@ -1790,14 +1794,37 @@ class SmartKeyboardService : InputMethodService() {
 
                             override fun onResults(results: Bundle?) {
                                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                val ic = currentInputConnection
                                 if (!matches.isNullOrEmpty()) {
                                     val recognized = matches[0]
-                                    val voiceResult = com.smartvoices.keyboard.voice.VoiceCommandProcessor.processVoiceText(recognized, getEffectiveVoiceLang())
-                                    if (voiceResult.isCommand) {
-                                        handleVoiceCommandResult(voiceResult)
+                                    if (isLiveTranslateActive) {
+                                        ic?.setComposingText("", 1)
+                                        ic?.finishComposingText()
+                                        serviceScope.launch {
+                                            val res = geminiService.translateText(recognized, liveTranslateSourceLang, liveTranslateTargetLang)
+                                            res.onSuccess { translated ->
+                                                mainHandler.post {
+                                                    ic?.commitText("$translated ", 1)
+                                                    tvLiveTranslatePreview.text = translated
+                                                }
+                                            }.onFailure {
+                                                mainHandler.post {
+                                                    ic?.commitText("$recognized ", 1)
+                                                }
+                                            }
+                                        }
                                     } else {
-                                        currentInputConnection?.commitText("${voiceResult.finalText} ", 1)
+                                        val voiceResult = com.smartvoices.keyboard.voice.VoiceCommandProcessor.processVoiceText(recognized, getEffectiveVoiceLang())
+                                        ic?.setComposingText("", 1)
+                                        ic?.finishComposingText()
+                                        if (voiceResult.isCommand) {
+                                            handleVoiceCommandResult(voiceResult)
+                                        } else {
+                                            ic?.commitText("${voiceResult.finalText} ", 1)
+                                        }
                                     }
+                                } else {
+                                    ic?.finishComposingText()
                                 }
                                 stopVoiceListening()
                             }
@@ -1805,7 +1832,18 @@ class SmartKeyboardService : InputMethodService() {
                             override fun onPartialResults(partialResults: Bundle?) {
                                 val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                                 if (!matches.isNullOrEmpty()) {
-                                    updateMicButtonState(true, "🔴 ${matches[0].take(10)}...")
+                                    val partialText = matches[0]
+                                    updateMicButtonState(true, "🔴 $partialText")
+                                    val ic = currentInputConnection
+                                    if (ic != null) {
+                                        if (isLiveTranslateActive) {
+                                            tvLiveTranslatePreview.text = partialText
+                                            scheduleLiveTranslateDebounce()
+                                        } else {
+                                            // Real-Time Live Streaming Voice Typing: Stream directly to active text field
+                                            ic.setComposingText(partialText, 1)
+                                        }
+                                    }
                                 }
                             }
 
@@ -1906,6 +1944,7 @@ class SmartKeyboardService : InputMethodService() {
         isListening = false
         updateMicButtonState(false, "🎙️")
         try {
+            currentInputConnection?.finishComposingText()
             speechRecognizer?.stopListening()
         } catch (e: Exception) {}
     }
