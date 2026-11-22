@@ -19,6 +19,20 @@ let mainWindow = null;
 let tray = null;
 const isMac = process.platform === 'darwin';
 
+// Enforce Single Instance Lock
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (!mainWindow.isVisible()) mainWindow.show();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 // Initialize core services
 const userDataPath = app.getPath('userData');
 const clipboardStore = new ClipboardStore(path.join(userDataPath, 'data'));
