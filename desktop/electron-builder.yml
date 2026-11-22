@@ -33,6 +33,7 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: "Smart Voice Keyboard"
   runAfterFinish: true
+  killProcessFirst: true
 
 portable:
   artifactName: "${productName}-Portable-v${version}-windows-${arch}.${ext}"
