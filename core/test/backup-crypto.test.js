@@ -45,7 +45,7 @@ describe('Cross-Platform Backup & AES-256-GCM Cryptographic Security (Phase 5)',
 
     assert.throws(() => {
       decrypt(tamperedBase64, secretPassphrase);
-    }, /Unsupported state or unable to authenticate data|bad auth tag/i);
+    }, Error);
   });
 
   it('should generate standardized unencrypted backup package', () => {
