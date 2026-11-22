@@ -17,17 +17,25 @@ win:
     - target: nsis
       arch:
         - x64
+    - target: zip
+      arch:
+        - x64
     - target: portable
       arch:
         - x64
-  artifactName: "${productName}-v${version}-windows-${arch}.${ext}"
 
 nsis:
+  artifactName: "${productName}-Setup-v${version}-windows-${arch}.${ext}"
   oneClick: false
+  perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: "Smart Voice Keyboard"
+  runAfterFinish: true
+
+portable:
+  artifactName: "${productName}-Portable-v${version}-windows-${arch}.${ext}"
 
 mac:
   category: public.app-category.productivity
