@@ -353,3 +353,47 @@ input:focus, textarea:focus, select:focus {
 .font-medium { font-weight: 500; }
 .font-semibold { font-weight: 600; }
 .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+/* Floating Mini Popup Mode */
+body.mini-mode nav {
+  display: none !important;
+}
+body.mini-mode header {
+  padding: 4px 10px !important;
+}
+body.mini-mode main {
+  padding: 4px 10px !important;
+  overflow: hidden !important;
+}
+body.mini-mode .tab-content {
+  display: none !important;
+}
+body.mini-mode #tab-voice {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body.mini-mode #tab-voice > div:first-child,
+body.mini-mode #tab-voice .space-y-2,
+body.mini-mode #tab-voice .flex-wrap {
+  display: none !important;
+}
+body.mini-mode #tab-voice .waveform-container {
+  height: 24px !important;
+  margin-bottom: 0 !important;
+}
+body.mini-mode #btnToggleVoice {
+  width: 32px !important;
+  height: 32px !important;
+}
+body.mini-mode #btnToggleVoice svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+body.mini-mode #voicePromptText {
+  margin-top: 0 !important;
+  font-size: 11px !important;
+}

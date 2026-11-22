@@ -45,14 +45,20 @@ let appSettings = {
   defaultLanguage: 'bn',
   autoPaste: true,
   alwaysOnTop: true,
-  hotkeyPopup: isMac ? 'Command+Alt+Space' : 'Control+Alt+Space',
-  hotkeyClipboard: isMac ? 'Command+Alt+V' : 'Control+Alt+V'
+  hotkeyPopup: isMac ? 'Command+Shift+Space' : 'Control+Shift+Space', // Safe default avoiding Claude Code Ctrl+Alt+Space conflict
+  hotkeyClipboard: isMac ? 'Command+Alt+V' : 'Control+Alt+V',
+  isMiniMode: false
 };
 
 // Load saved settings if exist
 try {
   if (fs.existsSync(settingsFile)) {
-    appSettings = { ...appSettings, ...JSON.parse(fs.readFileSync(settingsFile, 'utf8')) };
+    const loaded = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+    // Auto-migrate if previous shortcut was conflicting Control+Alt+Space
+    if (loaded.hotkeyPopup === 'Control+Alt+Space') {
+      loaded.hotkeyPopup = 'Control+Shift+Space';
+    }
+    appSettings = { ...appSettings, ...loaded };
   }
 } catch (e) {
   console.error('Error loading settings:', e);
@@ -113,6 +119,12 @@ function createTray() {
       }
     },
     {
+      label: 'Toggle Floating Mini Bar (Popup)',
+      click: () => {
+        toggleMiniMode();
+      }
+    },
+    {
       label: 'Dictate / Translate (Shortcut)',
       click: () => {
         mainWindow.show();
@@ -148,11 +160,28 @@ function createTray() {
   });
 }
 
+function toggleMiniMode(forceMini) {
+  if (!mainWindow) return false;
+  appSettings.isMiniMode = typeof forceMini === 'boolean' ? forceMini : !appSettings.isMiniMode;
+  if (appSettings.isMiniMode) {
+    mainWindow.setMinimumSize(380, 68);
+    mainWindow.setSize(480, 72);
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    mainWindow.webContents.send('mode:mini-changed', true);
+  } else {
+    mainWindow.setMinimumSize(500, 400);
+    mainWindow.setSize(680, 520);
+    mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop);
+    mainWindow.webContents.send('mode:mini-changed', false);
+  }
+  return appSettings.isMiniMode;
+}
+
 function registerGlobalHotkeys() {
   globalShortcut.unregisterAll();
 
   // Toggle main popup
-  if (appSettings.hotkeyPopup) {
+  if (appSettings.hotkeyPopup && appSettings.hotkeyPopup.toLowerCase() !== 'none') {
     try {
       globalShortcut.register(appSettings.hotkeyPopup, () => {
         if (mainWindow.isVisible()) {
@@ -316,6 +345,20 @@ ipcMain.handle('sync:get-status', () => {
   };
 });
 
+ipcMain.handle('desktop:toggle-mini-mode', async (_, { mini } = {}) => {
+  return toggleMiniMode(mini);
+});
+
+ipcMain.handle('desktop:show-popup', async () => {
+  if (mainWindow) {
+    if (!mainWindow.isVisible()) mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    return true;
+  }
+  return false;
+});
+
 ipcMain.handle('settings:get', async () => {
   return appSettings;
 });
@@ -328,6 +371,7 @@ ipcMain.handle('settings:save', async (_, { settings }) => {
     mainWindow.setAlwaysOnTop(appSettings.alwaysOnTop);
   }
   try {
+    fs.mkdirSync(userDataPath, { recursive: true });
     fs.writeFileSync(settingsFile, JSON.stringify(appSettings, null, 2), 'utf8');
   } catch (e) {
     console.error('Failed to save settings:', e);

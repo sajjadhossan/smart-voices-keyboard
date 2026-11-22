@@ -891,11 +891,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (settingSttEngine) settingSttEngine.value = s.sttEngine || 'native';
       if (settingAutoPaste) settingAutoPaste.checked = s.autoPaste !== false;
       if (settingAlwaysOnTop) settingAlwaysOnTop.checked = s.alwaysOnTop !== false;
+      const settingHotkeyPopup = document.getElementById('settingHotkeyPopup');
+      if (settingHotkeyPopup && s.hotkeyPopup) {
+        settingHotkeyPopup.value = s.hotkeyPopup;
+      }
     }
     pingGeminiStatus();
   }
 
   loadSettings();
+
+  // Floating Mini Popup Controls
+  document.getElementById('btnToggleMiniMode')?.addEventListener('click', async () => {
+    if (window.api?.toggleMiniMode) {
+      await window.api.toggleMiniMode();
+    }
+  });
+
+  document.getElementById('btnManualOpenPopup')?.addEventListener('click', async () => {
+    if (window.api?.toggleMiniMode) {
+      await window.api.toggleMiniMode(true);
+    }
+  });
+
+  if (window.api?.onMiniModeChanged) {
+    window.api.onMiniModeChanged((isMini) => {
+      document.body.classList.toggle('mini-mode', isMini);
+      const btn = document.getElementById('btnToggleMiniMode');
+      if (btn) {
+        btn.innerHTML = isMini ? '<span>🖥️ ফুল উইন্ডো</span>' : '<span>🚀 ফ্লোটিং বার</span>';
+      }
+    });
+  }
 
   async function pingGeminiStatus(apiKeyInput = null) {
     const key = apiKeyInput !== null ? apiKeyInput : (settingApiKey?.value?.trim() || '');
@@ -922,9 +949,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       let isValid = false;
       let latency = 0;
+      let modelMsg = 'Gemini Flash';
       if (window.api?.validateApiKey) {
         const res = await window.api.validateApiKey(key);
         isValid = !!res.valid;
+        if (!isValid) {
+          throw new Error(res.error || 'API Key কাজ করছে না');
+        }
+        if (res.model) modelMsg = res.model;
         latency = Math.max(1, Date.now() - start);
       } else {
         const res = await fetch('/api/gemini/ping', {
@@ -939,13 +971,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (isValid) {
         if (statusLed) statusLed.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50';
-        if (statusText) statusText.textContent = '🟢 Gemini 1.5 Flash সক্রিয় ও প্রস্তুত (Active)';
+        if (statusText) statusText.textContent = `🟢 ${modelMsg} সক্রিয় ও প্রস্তুত (Active)`;
         if (latencyText) latencyText.textContent = `${latency}ms`;
         if (headerBadge) {
           headerBadge.textContent = `🟢 Gemini (${latency}ms)`;
           headerBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono cursor-pointer transition hover:bg-emerald-500/30';
         }
-        return { connected: true, latency };
+        return { connected: true, latency, model: modelMsg };
       } else {
         throw new Error('API Key কাজ করছে না');
       }
@@ -977,26 +1009,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const status = await pingGeminiStatus(key);
     btn.textContent = 'টেস্ট করুন';
     if (status.connected) {
-      alert(`সফল! Gemini API সংযোগ সক্রিয়। 🟢 (ল্যাটেন্সি: ${status.latency}ms)`);
+      alert(`সফল! Gemini API সংযোগ সক্রিয়। 🟢 (${status.model || 'Gemini'}, ল্যাটেন্সি: ${status.latency}ms)`);
     } else {
       alert('ব্যর্থ: ' + (status.error || 'ভুল বা নিষ্ক্রিয় API Key'));
     }
   });
 
   document.getElementById('btnSaveSettings')?.addEventListener('click', async () => {
+    const settingHotkeyPopup = document.getElementById('settingHotkeyPopup');
     const payload = {
       geminiApiKey: settingApiKey.value.trim(),
       defaultLanguage: settingDefaultLanguage.value,
       sttEngine: settingSttEngine.value,
       theme: settingAppTheme ? settingAppTheme.value : 'dark',
       autoPaste: settingAutoPaste.checked,
-      alwaysOnTop: settingAlwaysOnTop.checked
+      alwaysOnTop: settingAlwaysOnTop.checked,
+      hotkeyPopup: settingHotkeyPopup ? settingHotkeyPopup.value : 'Control+Shift+Space'
     };
     if (window.api?.saveSettings) {
       await window.api.saveSettings(payload);
     }
     localStorage.setItem('smart_keyboard_settings', JSON.stringify(payload));
     localStorage.setItem('smart_keyboard_theme', payload.theme);
+    pingGeminiStatus(payload.geminiApiKey);
     alert('সেটিংস সফলভাবে সংরক্ষিত হয়েছে! (Settings saved 🟢)');
   });
 

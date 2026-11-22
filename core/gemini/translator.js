@@ -20,12 +20,13 @@ class GeminiTranslator {
   async requestWithFallback(requestBody) {
     const candidates = [
       { ver: 'v1beta', model: this.modelName || 'gemini-flash-lite-latest' },
+      { ver: 'v1beta', model: 'gemini-2.5-flash' },
+      { ver: 'v1beta', model: 'gemini-2.0-flash' },
+      { ver: 'v1beta', model: 'gemini-1.5-flash' },
       { ver: 'v1beta', model: 'gemini-flash-lite-latest' },
-      { ver: 'v1beta', model: 'gemini-3.6-flash' },
-      { ver: 'v1beta', model: 'gemini-3.5-flash' },
-      { ver: 'v1beta', model: 'gemini-3.5-flash-lite' },
-      { ver: 'v1beta', model: 'gemini-3.1-flash-lite' },
-      { ver: 'v1', model: 'gemini-flash-lite-latest' }
+      { ver: 'v1beta', model: 'gemini-1.5-flash-8b' },
+      { ver: 'v1', model: 'gemini-2.0-flash' },
+      { ver: 'v1', model: 'gemini-1.5-flash' }
     ];
 
     let lastErr = '';
@@ -183,6 +184,38 @@ Return JSON format ONLY:
         result: candidate.trim(),
         original: rawVoiceInput
       };
+    }
+  }
+
+  /**
+   * Validate if the provided Gemini API key is active and functional
+   * @returns {Promise<{valid: boolean, error?: string, model?: string}>}
+   */
+  async validateKey() {
+    if (!this.apiKey || !this.apiKey.trim()) {
+      return { valid: false, error: 'API Key খালি (প্রদান করা হয়নি)' };
+    }
+    const cleanKey = this.apiKey.trim();
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`;
+      const response = await fetch(url, { method: 'GET' });
+      if (response.ok) {
+        const data = await response.json();
+        const models = (data.models || []).map(m => m.name.replace('models/', ''));
+        const matched = models.find(m => m.includes('flash') || m.includes('gemini')) || 'gemini-1.5-flash';
+        return { valid: true, model: matched };
+      }
+      const errText = await response.text();
+      let msg = `Error ${response.status}`;
+      try {
+        const jsonErr = JSON.parse(errText);
+        msg = jsonErr.error?.message || msg;
+      } catch (_) {
+        msg = errText || msg;
+      }
+      return { valid: false, error: msg };
+    } catch (err) {
+      return { valid: false, error: err.message || 'নেটওয়ার্ক কানেকশন ব্যর্থ' };
     }
   }
 }

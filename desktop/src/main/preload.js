@@ -52,12 +52,21 @@ contextBridge.exposeInMainWorld('api', {
   saveSettings: (settings) => 
     ipcRenderer.invoke('settings:save', { settings }),
 
-  // Window control
+  // Window control & Floating Mini Mode
   hideWindow: () => 
     ipcRenderer.invoke('window:hide'),
 
   minimizeWindow: () => 
     ipcRenderer.invoke('window:minimize'),
+
+  toggleMiniMode: (mini) =>
+    ipcRenderer.invoke('desktop:toggle-mini-mode', { mini }),
+
+  showPopup: () =>
+    ipcRenderer.invoke('desktop:show-popup'),
+
+  onMiniModeChanged: (callback) =>
+    ipcRenderer.on('mode:mini-changed', (_e, mini) => callback(mini)),
 
   // Desktop Mode Switching Events (Phase 8)
   onSwitchMode: (callback) => {

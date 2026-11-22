@@ -16,6 +16,9 @@
       <span id="headerGeminiBadge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono cursor-pointer transition hover:bg-emerald-500/30" title="Gemini AI কানেকশন স্ট্যাটাস">🟢 Gemini 1.5</span>
     </div>
     <div class="flex items-center gap-2 no-drag">
+      <button id="btnToggleMiniMode" class="px-2 py-0.5 text-xs bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 rounded flex items-center gap-1 transition" title="ফ্লোটিং মিনি পপআপ মোড (Compact Floating Bar)">
+        <span>🚀 ফ্লোটিং বার</span>
+      </button>
       <button id="btnMinimize" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white" title="Minimize">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
       </button>
@@ -359,6 +362,30 @@
         <div class="flex items-center justify-between">
           <label class="text-xs text-slate-300">উইন্ডো সর্বদা উপরে রাখুন (Always on top):</label>
           <input type="checkbox" id="settingAlwaysOnTop" class="w-4 h-4 accent-emerald-500 rounded cursor-pointer" />
+        </div>
+      </div>
+
+      <div class="space-y-3 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+        <h3 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">⚡ ফ্লোটিং পপআপ ও গ্লোবাল শর্টকাট (Floating Popup &amp; Hotkeys)</h3>
+        <p class="text-[11px] text-slate-400">শর্টকাট চাপলে বা নিচের বাটনে ক্লিক করলে অ্যাপটি ফ্লোটিং পপআপ বারে পরিণত হবে যা স্ক্রিনের উপরে ভেসে থাকবে।</p>
+        
+        <div class="space-y-2">
+          <button id="btnManualOpenPopup" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-2 shadow transition">
+            <span>🚀 এখনই ফ্লোটিং পপআপ চালু করুন (Open Floating Popup)</span>
+          </button>
+          
+          <div class="space-y-1 pt-1">
+            <label class="text-xs text-slate-300">পপআপ শর্টকাট (Global Hotkey):</label>
+            <select id="settingHotkeyPopup" class="w-full bg-slate-950/70 border border-slate-800 rounded px-2 py-1.5 text-slate-200 text-xs font-mono">
+              <option value="Control+Shift+Space" selected>Control + Shift + Space (প্রস্তাবিত - নো কনফ্লিক্ট)</option>
+              <option value="Control+Alt+K">Control + Alt + K</option>
+              <option value="Alt+Space">Alt + Space</option>
+              <option value="Control+F9">Control + F9</option>
+              <option value="F9">F9</option>
+              <option value="none">none (শর্টকাট বন্ধ - কেবল ম্যানুয়াল বাটন ও ট্রে দিয়ে চলবে)</option>
+            </select>
+            <p class="text-[10px] text-slate-400">Control+Alt+Space অন্য কোনো অ্যাপে (যেমন Claude Code) কনফ্লিক্ট করলে এখান থেকে সুবিধামতো শর্টকাট পরিবর্তন করে নিন।</p>
+          </div>
         </div>
       </div>
 
