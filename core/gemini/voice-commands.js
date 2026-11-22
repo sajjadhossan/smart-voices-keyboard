@@ -58,7 +58,7 @@ class VoiceCommandEngine {
   constructor(apiKey = process.env.GEMINI_API_KEY) {
     this.apiKey = apiKey;
     this.translator = new GeminiTranslator(apiKey);
-    this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent';
   }
 
   setApiKey(key) {

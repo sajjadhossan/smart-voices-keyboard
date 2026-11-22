@@ -14,7 +14,7 @@ const { VoiceCommandEngine } = require('../core/gemini/voice-commands');
 const { GeminiTranslator } = require('../core/gemini/translator');
 const { ClipboardStore } = require('../core/clipboard/clipboard-store');
 
-const VERSION = '2.3.0';
+const VERSION = '2.3.1';
 
 // ANSI Colors for Human-Friendly REPL & Terminal Display
 const COLORS = {
@@ -29,15 +29,19 @@ const COLORS = {
   magenta: '\x1b[35m'
 };
 
+const print = (...args) => {
+  process.stdout.write(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') + '\n');
+};
+
 const predictionEngine = new PredictionEngine();
 const voiceCommandEngine = new VoiceCommandEngine();
 const clipboardStore = new ClipboardStore();
 
 function printBanner() {
-  console.log(`${COLORS.cyan}┌─────────────────────────────────────────────────────────────┐${COLORS.reset}`);
-  console.log(`${COLORS.cyan}│${COLORS.bright}  🎙️  Smart Voice Keyboard CLI (v${VERSION})                      ${COLORS.cyan}│${COLORS.reset}`);
-  console.log(`${COLORS.cyan}│${COLORS.dim}  Agent-Native Harness & Interactive REPL Shell               ${COLORS.cyan}│${COLORS.reset}`);
-  console.log(`${COLORS.cyan}└─────────────────────────────────────────────────────────────┘${COLORS.reset}`);
+  print(`${COLORS.cyan}┌─────────────────────────────────────────────────────────────┐${COLORS.reset}`);
+  print(`${COLORS.cyan}│${COLORS.bright}  🎙️  Smart Voice Keyboard CLI (v${VERSION})                      ${COLORS.cyan}│${COLORS.reset}`);
+  print(`${COLORS.cyan}│${COLORS.dim}  Agent-Native Harness & Interactive REPL Shell               ${COLORS.cyan}│${COLORS.reset}`);
+  print(`${COLORS.cyan}└─────────────────────────────────────────────────────────────┘${COLORS.reset}`);
 }
 
 function parseFlags(args) {
@@ -80,17 +84,17 @@ function parseFlags(args) {
 
 function outputResult(result, isJson) {
   if (isJson) {
-    console.log(JSON.stringify(result, null, 2));
+    print(JSON.stringify(result, null, 2));
   } else {
     if (result.success) {
-      if (result.message) console.log(`${COLORS.green}✓ ${result.message}${COLORS.reset}`);
+      if (result.message) print(`${COLORS.green}✓ ${result.message}${COLORS.reset}`);
       if (result.data !== undefined) {
         if (typeof result.data === 'string') {
-          console.log(result.data);
+          print(result.data);
         } else if (Array.isArray(result.data)) {
-          console.log(result.data.map(item => typeof item === 'object' ? JSON.stringify(item) : `  • ${item}`).join('\n'));
+          print(result.data.map(item => typeof item === 'object' ? JSON.stringify(item) : `  • ${item}`).join('\n'));
         } else {
-          console.dir(result.data, { depth: null, colors: true });
+          print(JSON.stringify(result.data, null, 2));
         }
       }
     } else {
@@ -224,7 +228,7 @@ function handleStatus() {
 }
 
 function printHelp() {
-  console.log(`
+  print(`
 Usage: smartkey <command> [options]
 
 Commands:
@@ -250,7 +254,7 @@ Options:
 // Stateful Interactive REPL Shell (CLI-Anything Standard)
 function startRepl() {
   printBanner();
-  console.log(`${COLORS.dim}Type .help for commands, .mode to switch typing mode, or .exit to quit.\n${COLORS.reset}`);
+  print(`${COLORS.dim}Type .help for commands, .mode to switch typing mode, or .exit to quit.\n${COLORS.reset}`);
 
   let currentMode = 'banglish'; // 'banglish' | 'bangla' | 'english'
 
@@ -270,7 +274,7 @@ function startRepl() {
     }
 
     if (input === '.exit' || input === 'exit' || input === 'quit' || input === '.quit') {
-      console.log(`${COLORS.cyan}Goodbye! 👋${COLORS.reset}`);
+      print(`${COLORS.cyan}Goodbye! 👋${COLORS.reset}`);
       process.exit(0);
     }
 
@@ -283,7 +287,7 @@ function startRepl() {
     if (input === '.mode') {
       currentMode = currentMode === 'banglish' ? 'bangla' : (currentMode === 'bangla' ? 'english' : 'banglish');
       rl.setPrompt(`${COLORS.green}smartkey${COLORS.reset}[${COLORS.yellow}${currentMode}${COLORS.reset}]> `);
-      console.log(`${COLORS.cyan}Active mode switched to: ${currentMode}${COLORS.reset}`);
+      print(`${COLORS.cyan}Active mode switched to: ${currentMode}${COLORS.reset}`);
       rl.prompt();
       return;
     }
@@ -294,13 +298,13 @@ function startRepl() {
 
     if (cmd === 'predict') {
       const res = await handlePredict(rest, { mode: currentMode === 'english' ? 'en' : 'bn', limit: 10 });
-      console.log(`${COLORS.yellow}Predictions:${COLORS.reset} ${res.data.predictions.join(' | ')}`);
+      print(`${COLORS.yellow}Predictions:${COLORS.reset} ${res.data.predictions.join(' | ')}`);
     } else if (cmd === 'phonetic') {
       const res = await handlePhonetic(rest);
-      console.log(`${COLORS.green}Bangla:${COLORS.reset} ${res.data.output}`);
+      print(`${COLORS.green}Bangla:${COLORS.reset} ${res.data.output}`);
     } else if (cmd === 'command') {
       const res = await handleCommand(rest);
-      console.log(`${COLORS.cyan}Detected Intent:${COLORS.reset} ${res.data.intent} -> "${res.data.payload}"`);
+      print(`${COLORS.cyan}Detected Intent:${COLORS.reset} ${res.data.intent} -> "${res.data.payload}"`);
     } else if (cmd === 'translate') {
       const res = await handleTranslate(rest, { from: 'bn', to: 'en' });
       outputResult(res, false);
@@ -315,20 +319,20 @@ function startRepl() {
       if (currentMode === 'banglish') {
         const translit = PhoneticEngine.transliterateText(input);
         const preds = predictionEngine.getPredictions(translit, '', true, 8);
-        console.log(`${COLORS.green}➔ বাংলা:${COLORS.reset} ${translit}`);
-        console.log(`${COLORS.dim}  সাজেশন:${COLORS.reset} ${preds.join('  •  ')}`);
+        print(`${COLORS.green}➔ বাংলা:${COLORS.reset} ${translit}`);
+        print(`${COLORS.dim}  সাজেশন:${COLORS.reset} ${preds.join('  •  ')}`);
       } else if (currentMode === 'bangla') {
         const preds = predictionEngine.getPredictions(input, '', true, 8);
-        console.log(`${COLORS.dim}  সাজেশন:${COLORS.reset} ${preds.join('  •  ')}`);
+        print(`${COLORS.dim}  সাজেশন:${COLORS.reset} ${preds.join('  •  ')}`);
       } else {
         const preds = predictionEngine.getPredictions(input, '', false, 8);
-        console.log(`${COLORS.dim}  Predictions:${COLORS.reset} ${preds.join('  •  ')}`);
+        print(`${COLORS.dim}  Predictions:${COLORS.reset} ${preds.join('  •  ')}`);
       }
     }
 
     rl.prompt();
   }).on('close', () => {
-    console.log(`\n${COLORS.cyan}Session closed.${COLORS.reset}`);
+    print(`\n${COLORS.cyan}Session closed.${COLORS.reset}`);
     process.exit(0);
   });
 }

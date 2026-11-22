@@ -72,7 +72,7 @@ test('CLI-Anything Smartkey Harness - Unit Tests', async (t) => {
     const res = handleStatus();
     assert.strictEqual(res.success, true);
     assert.strictEqual(res.data.name, 'smart-voices-keyboard');
-    assert.strictEqual(res.data.version, '2.3.0');
+    assert.strictEqual(res.data.version, '2.3.1');
     assert(res.data.supportedPlatforms.includes('android'));
     assert(res.data.supportedPlatforms.includes('windows'));
   });

@@ -14,7 +14,7 @@ data class ApiHealthStatus(
     val isConnected: Boolean,
     val latencyMs: Long = 0L,
     val message: String = "",
-    val activeModel: String = "gemini-1.5-flash",
+    val activeModel: String = "gemini-flash-lite-latest",
     val apiVersion: String = "v1beta"
 )
 
@@ -22,17 +22,17 @@ class GeminiService(private var apiKey: String) {
 
     companion object {
         @Volatile var activeApiVersion: String = "v1beta"
-        @Volatile var activeModelName: String = "gemini-1.5-flash"
+        @Volatile var activeModelName: String = "gemini-flash-lite-latest"
 
-        // Candidate fallback list ordered by modern Gemini speed & stability
+        // Candidate fallback list ordered by tested Google AI Studio live availability
         val CANDIDATE_MODELS = listOf(
-            Pair("v1beta", "gemini-2.0-flash"),
-            Pair("v1beta", "gemini-1.5-flash"),
-            Pair("v1", "gemini-1.5-flash"),
-            Pair("v1beta", "gemini-1.5-flash-latest"),
-            Pair("v1beta", "gemini-2.5-flash"),
-            Pair("v1", "gemini-2.0-flash"),
-            Pair("v1beta", "gemini-1.5-pro")
+            Pair("v1beta", "gemini-flash-lite-latest"),
+            Pair("v1beta", "gemini-3.6-flash"),
+            Pair("v1beta", "gemini-3.5-flash"),
+            Pair("v1beta", "gemini-3.5-flash-lite"),
+            Pair("v1beta", "gemini-3.1-flash-lite"),
+            Pair("v1", "gemini-flash-lite-latest"),
+            Pair("v1beta", "gemini-flash-latest")
         )
 
         fun sanitizeKey(key: String): String {
@@ -84,20 +84,56 @@ class GeminiService(private var apiKey: String) {
                                     break
                                 }
                             }
-                            if (supportsGenerate && mName.isNotBlank()) {
+                            if (supportsGenerate && mName.isNotBlank() &&
+                                !mName.contains("2.5") && !mName.contains("1.5") &&
+                                !mName.contains("tts") && !mName.contains("image") && 
+                                !mName.contains("embedding") && !mName.contains("robotics") &&
+                                !mName.contains("customtools")) {
                                 availableModels.add(mName)
                             }
                         }
 
                         if (availableModels.isNotEmpty()) {
-                            // Priority match: 2.0-flash -> 1.5-flash -> flash-latest -> 2.5-flash -> any flash -> first available
-                            val chosen = availableModels.firstOrNull { it == "gemini-2.0-flash" }
-                                ?: availableModels.firstOrNull { it == "gemini-1.5-flash" }
-                                ?: availableModels.firstOrNull { it.contains("2.0-flash") }
-                                ?: availableModels.firstOrNull { it.contains("1.5-flash") }
-                                ?: availableModels.firstOrNull { it.contains("flash") }
-                                ?: availableModels.first()
+                            // Smart priority sorting: prefer flash-lite-latest, then flash-lite, then flash
+                            availableModels.sortWith { a, b ->
+                                fun score(name: String): Int {
+                                    var s = 0
+                                    if (name == "gemini-flash-lite-latest") s += 250
+                                    else if (name.contains("flash-lite")) s += 100
+                                    else if (name.contains("flash")) s += 50
+                                    if (name.contains("3.6")) s += 45
+                                    else if (name.contains("3.5")) s += 40
+                                    else if (name.contains("3.1")) s += 35
+                                    else if (name.contains("3.")) s += 30
+                                    return -s
+                                }
+                                score(a).compareTo(score(b))
+                            }
 
+                            // Dynamic live-probe: verify with actual micro-request so deprecated models are skipped
+                            for (candidate in availableModels.take(8)) {
+                                try {
+                                    val probeUrl = getEndpointUrl(ver, candidate, cleanKey)
+                                    val probeConn = (probeUrl.openConnection() as HttpURLConnection).apply {
+                                        requestMethod = "POST"
+                                        setRequestProperty("Content-Type", "application/json")
+                                        setRequestProperty("x-goog-api-key", cleanKey)
+                                        doOutput = true
+                                        connectTimeout = 4000
+                                        readTimeout = 5000
+                                    }
+                                    val pingPayload = "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"OK\"}]}]}"
+                                    OutputStreamWriter(probeConn.outputStream).use { it.write(pingPayload); it.flush() }
+                                    if (probeConn.responseCode == HttpURLConnection.HTTP_OK) {
+                                        activeApiVersion = ver
+                                        activeModelName = candidate
+                                        return@withContext Pair(ver, candidate)
+                                    }
+                                } catch (_: Exception) {}
+                            }
+
+                            // Fallback to top priority candidate
+                            val chosen = availableModels.first()
                             activeApiVersion = ver
                             activeModelName = chosen
                             return@withContext Pair(ver, chosen)
@@ -272,10 +308,9 @@ class GeminiService(private var apiKey: String) {
             } catch (_: Exception) { "" }
 
             val friendlyMsg = if (googleMsg.contains("has not been used in project") || googleMsg.contains("is disabled")) {
-                "গুগল ক্লাউড প্রজেক্টে Generative Language API সক্রিয় নেই। দয়া করে aistudio.google.com থেকে 'Create API key in new project' বেছে নিন অথবা console.cloud.google.com এ গিয়ে Generative Language API Enable করুন।"
+                "গুগল ক্লাউড প্রজেক্টে Generative Language API সক্রিয় নেই। সমাধান: aistudio.google.com/apikey এ গিয়ে 'Create API key in new project' বেছে নিন।"
             } else if (lastCode == HttpURLConnection.HTTP_NOT_FOUND) {
-                if (googleMsg.isNotBlank()) "এপিআই ত্রুটি (404): $googleMsg"
-                else "গুগল জেমিনি মডেল পাওয়া যায়নি (Error 404)। দয়া করে aistudio.google.com থেকে নতুন API Key তৈরি করুন এবং Generative Language API সক্রিয় রয়েছে কি না নিশ্চিত করুন।"
+                "গুগল জেমিনি মডেল পাওয়া যায়নি (Error 404)। রুট কজ: আপনার Google প্রজেক্টে 'Generative Language API' চালু (Enable) নেই। সমাধান: aistudio.google.com/apikey এ যান -> 'Create API Key' -> অবশ্যই 'Create API key in NEW project' সিলেক্ট করুন।"
             } else if (lastCode == HttpURLConnection.HTTP_UNAUTHORIZED || lastCode == HttpURLConnection.HTTP_FORBIDDEN) {
                 "Gemini API Key অবৈধ অথবা অনুমতি নেই (Error $lastCode)। সঠিক কী নিশ্চিত করুন।"
             } else {

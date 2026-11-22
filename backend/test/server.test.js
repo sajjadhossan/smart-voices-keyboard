@@ -56,7 +56,7 @@ async function runBackendTests() {
 
     assert.strictEqual(verRes.statusCode, 200);
     assert.strictEqual(verRes.body.success, true);
-    assert.strictEqual(verRes.body.data.latestVersion, '2.3.0');
+    assert.strictEqual(verRes.body.data.latestVersion, '2.3.1');
     assert(verRes.body.data.apkDownloadUrl.includes('.apk'));
     console.log('  [PASS] Version parity API returns correct contract.');
 
@@ -198,7 +198,7 @@ async function runBackendTests() {
     }, { apiKey: 'AIzaSyExampleValidTestKey123' });
     assert.strictEqual(pingRes.statusCode, 200);
     assert.strictEqual(pingRes.body.data.connected, true);
-    assert.strictEqual(pingRes.body.data.model, 'gemini-1.5-flash');
+    assert.strictEqual(pingRes.body.data.model, 'gemini-flash-lite-latest');
     assert(typeof pingRes.body.data.latency_ms === 'number');
     console.log('  [PASS] Gemini API health check and latency ping verified.');
 

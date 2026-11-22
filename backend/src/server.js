@@ -54,14 +54,14 @@ const db = {
   ],
   clips: [],
   version: {
-    latestVersion: '2.3.0',
+    latestVersion: '2.3.1',
     minimumSupportedVersion: '1.0.0',
-    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-android.apk',
-    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.0-windows-x64.exe',
-    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.0-macOS-universal.dmg',
+    apkDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.1-build18-release.apk',
+    windowsDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.1-windows-x64.exe',
+    macosDownloadUrl: 'https://github.com/sajjadhossan/smart-voices-keyboard/releases/latest/download/SmartVoiceKeyboard-v2.3.1-macOS-universal.dmg',
     releaseNotes: {
-      bn: 'রিলিজ ২.৩.০: ডিপ প্রেডিকশন ইঞ্জিন (যৌগিক শব্দ যেমন চাল->চালতা ও ধ্বনিতাত্ত্বিক বিকল্প যেমন তা->টা), হরাইজন্টাল স্ক্রলেবল ক্যান্ডিডেট বার এবং আধুনিক কি-ক্যাপ ইউআই।',
-      en: 'Release 2.3.0: Deep multi-prediction engine (compound expansion & phonetic alternates), scrollable candidate strip, and modern keycap UI overhaul.'
+      bn: 'রিলিজ ২.৩.১: গুগল জেমিনি এআই লাইভ অটো-ডিসকভারি ইঞ্জিন সংযোজন। সব মডেল (৩.x ও নতুন) নিজে থেকেই চিনে নিয়ে স্বয়ংক্রিয় কানেকশন স্থাপন।',
+      en: 'Release 2.3.1: Universal Gemini AI live auto-discovery engine. Automatically probes and detects active models with zero 404 errors.'
     },
     forceUpdate: false
   }
@@ -157,7 +157,7 @@ const requestHandler = async (req, res) => {
     return sendSuccess(res, 200, 'Gemini API status checked', {
       connected: hasKey,
       signal: hasKey ? 'GREEN' : 'YELLOW',
-      model: 'gemini-1.5-flash',
+      model: 'gemini-flash-lite-latest',
       latency_ms: latency,
       tested_at: new Date().toISOString()
     });
@@ -386,7 +386,7 @@ const server = http.createServer(requestHandler);
 
 if (require.main === module) {
   server.listen(PORT, () => {
-    console.log(`Smart Voice Keyboard Backend API running on port ${PORT}`);
+    process.stdout.write(`Smart Voice Keyboard Backend API running on port ${PORT}\n`);
   });
 }
 

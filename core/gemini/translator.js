@@ -6,7 +6,7 @@
 class GeminiTranslator {
   constructor(apiKey = process.env.GEMINI_API_KEY) {
     this.apiKey = apiKey;
-    this.modelName = 'gemini-1.5-flash';
+    this.modelName = 'gemini-flash-lite-latest';
     this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
   }
 
@@ -19,12 +19,13 @@ class GeminiTranslator {
    */
   async requestWithFallback(requestBody) {
     const candidates = [
-      { ver: 'v1beta', model: this.modelName || 'gemini-2.0-flash' },
-      { ver: 'v1beta', model: 'gemini-1.5-flash' },
-      { ver: 'v1', model: 'gemini-1.5-flash' },
-      { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
-      { ver: 'v1beta', model: 'gemini-2.5-flash' },
-      { ver: 'v1', model: 'gemini-2.0-flash' }
+      { ver: 'v1beta', model: this.modelName || 'gemini-flash-lite-latest' },
+      { ver: 'v1beta', model: 'gemini-flash-lite-latest' },
+      { ver: 'v1beta', model: 'gemini-3.6-flash' },
+      { ver: 'v1beta', model: 'gemini-3.5-flash' },
+      { ver: 'v1beta', model: 'gemini-3.5-flash-lite' },
+      { ver: 'v1beta', model: 'gemini-3.1-flash-lite' },
+      { ver: 'v1', model: 'gemini-flash-lite-latest' }
     ];
 
     let lastErr = '';
@@ -55,8 +56,33 @@ class GeminiTranslator {
       }
     }
 
+    // Dynamic auto-discovery fallback if candidates fail
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${this.apiKey}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const liveModels = (listData.models || [])
+          .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+          .map(m => m.name.replace('models/', ''))
+          .filter(m => !m.includes('tts') && !m.includes('image') && !m.includes('embedding'));
+
+        for (const lm of liveModels.slice(0, 5)) {
+          const liveUrl = `https://generativelanguage.googleapis.com/v1beta/models/${lm}:generateContent?key=${this.apiKey}`;
+          const liveResponse = await fetch(liveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+          if (liveResponse.ok) {
+            this.modelName = lm;
+            return await liveResponse.json();
+          }
+        }
+      }
+    } catch (_) {}
+
     if (lastStatus === 404) {
-      throw new Error(`Gemini API error [404]: No active Gemini model found. Please verify API key at aistudio.google.com.`);
+      throw new Error(`গুগল জেমিনি মডেল পাওয়া যায়নি (Error 404)। রুট কজ: গুগল ক্লাউড প্রজেক্টে 'Generative Language API' চালু নেই। সমাধান: aistudio.google.com/apikey এ গিয়ে 'Create API key in NEW project' বেছে নিন।`);
     }
     throw new Error(`Gemini API error [${lastStatus}]: ${lastErr}`);
   }
