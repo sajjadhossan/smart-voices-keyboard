@@ -9,11 +9,11 @@ const fs = require('fs');
 const { exec } = require('child_process');
 require('dotenv').config();
 
-const { GeminiTranslator } = require('../../core/gemini/translator');
-const { VoiceCommandEngine } = require('../../core/gemini/voice-commands');
-const { PhoneticEngine } = require('../../core/phonetic/phonetic-engine');
-const { ClipboardStore } = require('../../core/clipboard/clipboard-store');
-const { SyncClient } = require('../../core/sync/sync-client');
+const { GeminiTranslator } = require('../../../core/gemini/translator');
+const { VoiceCommandEngine } = require('../../../core/gemini/voice-commands');
+const { PhoneticEngine } = require('../../../core/phonetic/phonetic-engine');
+const { ClipboardStore } = require('../../../core/clipboard/clipboard-store');
+const { SyncClient } = require('../../../core/sync/sync-client');
 
 let mainWindow = null;
 let tray = null;
